@@ -33,7 +33,7 @@ class AuthRepository {
     try {
       final res = await _supabase.auth.signInWithPassword(
         email: email.trim(),
-        password: <REDACTED_SECRET>,
+        password: password,
       );
       final session = res.session;
       final user = res.user;
@@ -41,7 +41,7 @@ class AuthRepository {
         throw const ApiException('Login gagal. Coba lagi.');
       }
       final appUser = await _resolveUser(user);
-      return _mirrorSession(session, appUser);
+      return await _mirrorSession(session, appUser);
     } on AuthException catch (e) {
       throw ApiException(_authMessage(e), int.tryParse(e.statusCode ?? ''));
     }
@@ -56,7 +56,7 @@ class AuthRepository {
     try {
       final res = await _supabase.auth.signUp(
         email: email.trim(),
-        password: <REDACTED_SECRET>,
+        password: password,
         data: {'name': trimmedName},
       );
       final user = res.user;
@@ -77,7 +77,7 @@ class AuthRepository {
         name: trimmedName,
         email: user.email ?? email.trim(),
       );
-      return _mirrorSession(session, appUser);
+      return await _mirrorSession(session, appUser);
     } on AuthException catch (e) {
       throw ApiException(_authMessage(e), int.tryParse(e.statusCode ?? ''));
     }
