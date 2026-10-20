@@ -4,6 +4,7 @@
 /// Catatan regex: pola ditranskrip persis dari Python. Semantik \b dan
 /// \d di Dart berbasis ASCII (Python: Unicode) — untuk judul marketplace
 /// Indonesia yang praktis ASCII, hasilnya setara.
+library;
 
 const List<String> buildWords = [
   'pc gaming',

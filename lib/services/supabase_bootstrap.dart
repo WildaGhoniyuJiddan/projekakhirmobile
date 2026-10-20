@@ -9,5 +9,5 @@ import 'package:worthbang/config/supabase_config.dart';
 /// pemanggilnya — bukan crash saat start.
 Future<void> initSupabase() async {
   if (!supabaseConfigured) return;
-  await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+  await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
 }

@@ -61,7 +61,7 @@ void main() {
       ro.visitChildren((c) => walk(c, depth + 1));
     }
 
-    walk(tester.binding.renderViewElement!.renderObject!, 0);
+    walk(tester.binding.rootElement!.renderObject!, 0);
   }
 
   testWidgets('diagnose price check', (tester) async {

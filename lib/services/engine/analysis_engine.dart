@@ -783,7 +783,7 @@ class AnalysisEngine {
         .toList();
 
     final seamTokens = <String>[
-      if (gpuNum != null) gpuNum,
+      ?gpuNum,
       ...queryTokens,
     ];
     var rows = _laptopRowsFromMaps(await listings.laptopUnits(tokens: seamTokens));

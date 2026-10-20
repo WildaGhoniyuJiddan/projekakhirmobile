@@ -1,8 +1,8 @@
 /// Konfigurasi Supabase — versi full-Dart (projekakhirmobile).
 ///
 /// Isi lewat --dart-define saat build/run:
-///   flutter run --dart-define=SUPABASE_URL=https://<ref>.supabase.co \
-///               --dart-define=SUPABASE_ANON_KEY=<anon-key>
+///   flutter run --dart-define=SUPABASE_URL=https://`<ref>`.supabase.co \
+///               --dart-define=SUPABASE_ANON_KEY=`<anon-key>`
 ///
 /// Anon key AMAN dibundel di APK: seluruh proteksi data ada di
 /// Row Level Security (lihat supabase/migrations/). Yang TIDAK BOLEH

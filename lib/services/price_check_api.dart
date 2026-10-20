@@ -13,9 +13,10 @@ import 'package:worthbang/services/supabase_listings_source.dart';
 /// screens/providers tidak berubah. Engine dibuat malas (lazy) dari
 /// dataset asset + SupabaseListingsSource; bisa diinjeksikan untuk test.
 class PriceCheckApi {
-  PriceCheckApi({AnalysisEngine? engine, SuggestEngine? suggestEngine})
-      : _engine = engine,
-        _suggestEngine = suggestEngine;
+  PriceCheckApi({AnalysisEngine? engine, SuggestEngine? suggestEngine}) {
+    _engine = engine;
+    _suggestEngine = suggestEngine;
+  }
 
   AnalysisEngine? _engine;
   SuggestEngine? _suggestEngine;
@@ -155,11 +156,11 @@ class PriceCheckApi {
   }
 
   PriceComparison _mapComparison(ComparisonData c) => PriceComparison(
-        title: c.title,
-        price: c.price,
-        source: c.source,
-        listingUrl: c.listingUrl,
-        similarity: c.similarity,
-        condition: c.condition,
-      );
+    title: c.title,
+    price: c.price,
+    source: c.source,
+    listingUrl: c.listingUrl,
+    similarity: c.similarity,
+    condition: c.condition,
+  );
 }
