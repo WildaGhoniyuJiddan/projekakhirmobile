@@ -1,0 +1,35 @@
+# Jangan pernah push folder .agent/ (aturan tetap dari user)
+.agent/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+.idea/
+*.iml
+.DS_Store
+
+# Node (pipeline aset 3D offline)
+tool/node_modules/
+
+# Kotlin/Gradle cache
+android/.kotlin/
+
+# Aset 3D mentah BuildCores (±180 MB, Draco).
+# Pipeline offline (tool/prepare_3d.mjs) menghasilkan assets/3d/prepared/
+# yang memang ikut repo. Raw_GLB tidak pernah dibundel ke APK.
+# Sumber: https://www.buildcores.com — unduh manual ke assets/3d/ lalu
+# jalankan: node tool/prepare_3d.mjs
+assets/3d/*
+!assets/3d/prepared/
+
+# Hasil optimizer GLB (tool/optimize_glb.mjs) — artefak build, bukan source.
+# File asli di assets/3d/ tidak pernah ditimpa.
+tool/output/
