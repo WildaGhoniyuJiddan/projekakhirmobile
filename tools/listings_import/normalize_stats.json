@@ -1,0 +1,47 @@
+{
+ "input": 3369,
+ "output": 3357,
+ "dropped": {
+  "junk": 0,
+  "title": 12
+ },
+ "moved_to_pc": {
+  "gpu": 170,
+  "laptop_dari_gpu": 201,
+  "cpu": 83,
+  "laptop_dari_cpu": 24,
+  "laptop_dari_ram": 103,
+  "ram": 20,
+  "laptop_dari_storage": 72,
+  "storage": 3,
+  "motherboard": 102,
+  "laptop_dari_motherboard": 2,
+  "laptop_dari_pc": 1
+ },
+ "laptop_units": 626,
+ "condition": {
+  "second": 1263,
+  "new": 653,
+  "(null)": 1441
+ },
+ "by_source": {
+  "facebook_marketplace": 1592,
+  "tokopedia": 1765
+ },
+ "by_category": {
+  "pc": 538,
+  "gpu": 1179,
+  "laptop": 626,
+  "cpu": 353,
+  "ram": 208,
+  "storage": 254,
+  "motherboard": 199
+ },
+ "laptop_parse_filled": {
+  "brand": 486,
+  "cpu": 242,
+  "gpu": 334,
+  "ram_gb": 437,
+  "storage_gb": 252
+ }
+}

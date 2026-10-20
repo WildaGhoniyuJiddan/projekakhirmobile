@@ -1,0 +1,131 @@
+RTX 3060	gpu
+RTX 4060	gpu
+RTX 3070	gpu
+RTX 4070	gpu
+RX 6600	gpu
+RX 6700 XT	gpu
+GTX 1660 Super	gpu
+RTX 2060	gpu
+Ryzen 5 5600	cpu
+Ryzen 7 5700X	cpu
+Core i5 12400F	cpu
+Core i3 12100F	cpu
+RAM DDR4 16GB 3200	ram
+RAM DDR5 16GB 5600	ram
+RAM DDR4 8GB	ram
+SSD NVMe 512GB	storage
+SSD NVMe 1TB	storage
+SSD SATA 256GB	storage
+Motherboard B550	motherboard
+Motherboard B660	motherboard
+Motherboard A520	motherboard
+Laptop gaming RTX 4060	laptop
+Laptop gaming RTX 3050	laptop
+Laptop gaming RTX 3060	laptop
+PC gaming rakitan	pc
+PC rakitan Ryzen	pc
+7900 MOD - HD 6520G	gpu
+7900 MOD - HD 6550D	gpu
+A10-12Q	gpu
+A10-24Q	gpu
+A10-4Q	gpu
+A10-8Q	gpu
+A100-SXM4-40GB	gpu
+A10G	gpu
+A16	gpu
+A16-16A	gpu
+A16-16Q	gpu
+A16-1B	gpu
+A16-1Q	gpu
+A16-2B	gpu
+A16-2Q	gpu
+A16-4Q	gpu
+A16-8Q	gpu
+A2-2Q	gpu
+A2-4Q	gpu
+A40	gpu
+A40-12Q	gpu
+A40-16Q	gpu
+A40-24Q	gpu
+A40-2Q	gpu
+A40-3Q	gpu
+A40-48Q	gpu
+A40-4Q	gpu
+A40-6Q	gpu
+A40-8Q	gpu
+A6 Micro-6500T Quad-Core APU with RadeonR4	gpu
+AicUsbDisplay Device	gpu
+All-in-Wonder X1900	gpu
+AMD Ryzen Z1 Extreme	gpu
+AnyViewerIddDriver Device	gpu
+ASUS EAH4870x2	gpu
+Asus GTX 650 FML II EC-EGPU	gpu
+B8DKMDAP	gpu
+Barco MXRT 1450	gpu
+Barco MXRT 2600	gpu
+Barco MXRT 5400	gpu
+Barco MXRT 5450	gpu
+Barco MXRT 5500	gpu
+Barco MXRT 5600	gpu
+Barco MXRT 7100	gpu
+Barco MXRT 7400	gpu
+Barco MXRT 7500	gpu
+Barco MXRT 7600	gpu
+Barco MXRV-3100	gpu
+Barco MXRV-7100	gpu
+Beijing Fantasy Technology Fantasy II-M	gpu
+CARRIZO 9874	gpu
+Citrix Indirect Display Adapter	gpu
+CMP 30HX	gpu
+CMP 40HX	gpu
+Custom GPU 0405	gpu
+Custom GPU 0932	gpu
+CXDisplay Device	gpu
+DameWare Development Mirror Driver 64-bit Ryzen 3	gpu
+DameWare Development Mirror Driver 64-bit Ryzen 7	gpu
+DisplayLink USB Device Ryzen 5 3550H	gpu
+4700S	cpu
+A10 PRO-7800B APU	cpu
+A10 PRO-7850B APU	cpu
+A10-5700 APU	cpu
+A10-5800B APU	cpu
+A10-5800K APU	cpu
+A10-6700 APU	cpu
+A10-6700T APU	cpu
+A10-6790B APU	cpu
+A10-6790K APU	cpu
+A10-6800B APU	cpu
+A10-6800K APU	cpu
+A10-7700K APU	cpu
+A10-7800 APU	cpu
+A10-7850K APU	cpu
+A10-7860K	cpu
+A10-7870K	cpu
+A10-7890K	cpu
+A10-8750	cpu
+A10-8850	cpu
+A10-9700	cpu
+A10-9700E	cpu
+A12-9800	cpu
+A12-9800E	cpu
+A4 PRO-7300B APU	cpu
+A4 PRO-7350B	cpu
+A4-3300 APU	cpu
+A4-3400 APU	cpu
+A4-3420 APU	cpu
+A4-4000 APU	cpu
+A4-4020 APU	cpu
+A4-5300 APU	cpu
+A4-5300B APU	cpu
+A4-6300 APU	cpu
+A4-6300B APU	cpu
+A4-6320 APU	cpu
+A4-7300 APU	cpu
+A6 PRO-7400B	cpu
+A6-3500 APU	cpu
+A6-3600 APU	cpu
+A6-3620 APU	cpu
+A6-3650 APU	cpu
+A6-3670 APU	cpu
+A6-5400B APU	cpu
+A6-5400K APU	cpu

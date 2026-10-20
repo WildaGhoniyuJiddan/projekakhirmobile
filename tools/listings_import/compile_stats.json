@@ -1,0 +1,19 @@
+{
+ "raw": 3636,
+ "kept": 3369,
+ "dropped": {
+  "dup": 0,
+  "mining": 2,
+  "wtb": 1,
+  "price": 264
+ },
+ "by_source": {
+  "facebook_marketplace": 1604,
+  "tokopedia": 1765
+ },
+ "by_condition": {
+  "bekas": 1275,
+  "baru": 653,
+  "(kosong)": 1441
+ }
+}
