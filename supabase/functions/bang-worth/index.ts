@@ -118,6 +118,121 @@ const REFUSAL_REPLY =
   "komponen PC & laptop - tanya soal harga, rakitan, atau perbandingan " +
   "komponen aja ya!";
 
+const EXAMPLE_QUESTIONS =
+  "Contoh yang bisa kamu tanya:\n" +
+  "• \"Rakit PC gaming budget 10 juta\"\n" +
+  "• \"RTX 4060 worth it nggak di harga 4,5 juta?\"\n" +
+  "• \"Mending Ryzen 5 5600 atau i5-12400F?\"";
+
+const GREETING_REPLY =
+  "Halo, Bos! 👋 Aku Bang Worth — tanya aja soal komponen PC/laptop, " +
+  "harga, atau minta disusunin rakitan sesuai budget.\n" + EXAMPLE_QUESTIONS;
+
+// Pesan yang mengandung kata kunci topik tapi BUKAN pertanyaan/permintaan
+// (pernyataan, cerita, kata kunci doang) tidak diteruskan ke Gemini:
+// buang kuota dan jawabannya ngambang. Tangani lokal dengan arahan.
+const STATEMENT_REPLY =
+  "Siap, kutampung dulu infonya 👍 Tapi aku paling berguna kalau kamu " +
+  "bertanya atau minta disusunin sesuatu.\n" + EXAMPLE_QUESTIONS;
+
+// Sinyal pertanyaan/permintaan Bahasa Indonesia. Kata kunci topik saja
+// (mis. "pc gaming") tidak cukup — harus ada salah satu sinyal ini,
+// tanda "?", atau kata tanya.
+const REQUEST_RE =
+  /\?|\b(apa|apakah|berapa|mana|dimana|kapan|kenapa|mengapa|bagaimana|gimana|bisakah|bolehkah|adakah|siapa|rekomendasi\w*|saran\w*|tolong|carikan|pilihkan|buatkan|rakit\w*|mending|worth|bagus|pilih\w*|banding\w*|cek|lihat|kasih|minta|cari|pengen|ingin|butuh|perlu)\b/i;
+
+function isQuestionOrRequest(message: string): boolean {
+  return REQUEST_RE.test(message);
+}
+
+/// Validasi deterministik atas build yang disusun model. Model kecil
+/// terbukti tetap melanggar kompatibilitas walau sudah diberi tag
+/// platform + aturan — jadi build dicek di server: socket CPU vs
+/// motherboard, generasi DDR RAM vs motherboard, dan GPU yang terlalu
+/// lemah untuk budget. Masalah yang ditemukan dikembalikan sebagai
+/// umpan balik untuk satu kali percobaan ulang; tetap gagal -> build
+/// dibuang, user menerima teks saja.
+interface BuildItem {
+  component: string;
+  name: string;
+  price: number;
+}
+
+function socketOf(name: string): string | null {
+  const m = name.toUpperCase().match(/AM[45]|LGA\s?\d{4}/);
+  return m ? m[0].replace(/\s+/g, "") : null;
+}
+
+function ddrOf(name: string): string | null {
+  return name.toUpperCase().match(/DDR[345]/)?.[0] ?? null;
+}
+
+/// Masalah HARD = build menyesatkan secara faktual (platform tidak
+/// kompatibel) — tidak boleh tampil walau setelah retry. Masalah SOFT
+/// = kualitas (kurang lengkap / lewat budget / GPU lemah) — setelah
+/// satu retry diterima apa adanya, karena membuang build utuh demi
+/// kelengkapan membuat mayoritas jawaban berakhir tanpa build.
+function validateBuild(
+  items: BuildItem[],
+  budget: number | null,
+): { hard: string[]; soft: string[] } {
+  const hard: string[] = [];
+  const soft: string[] = [];
+  const byComp = new Map(items.map((i) => [i.component, i]));
+  // Kelengkapan + kepatuhan budget hanya dituntut saat user menyebut
+  // budget (= konteks rakitan). Tanpa keduanya, model terbukti berani
+  // mengirim build tanpa motherboard dan total di atas budget.
+  if (budget !== null) {
+    for (const required of ["CPU", "Motherboard", "RAM", "SSD"]) {
+      if (!byComp.has(required)) {
+        soft.push(`build tidak lengkap: tidak ada ${required}`);
+      }
+    }
+    const sum = items.reduce((acc, i) => acc + i.price, 0);
+    if (sum > Math.floor(budget * 1.02)) {
+      soft.push(
+        `total rakitan Rp${sum} melebihi budget Rp${budget}`,
+      );
+    }
+  }
+  const cpu = byComp.get("CPU");
+  const mobo = byComp.get("Motherboard");
+  const ram = byComp.get("RAM");
+  const gpu = byComp.get("GPU");
+  if (cpu && mobo) {
+    const sCpu = socketOf(cpu.name);
+    const sMobo = socketOf(mobo.name);
+    if (sCpu && sMobo && sCpu !== sMobo) {
+      hard.push(
+        `socket CPU ${sCpu} tidak cocok dengan motherboard ${sMobo}`,
+      );
+    }
+  }
+  if (ram && mobo) {
+    const dRam = ddrOf(ram.name);
+    const dMobo = ddrOf(mobo.name);
+    if (dRam && dMobo && dRam !== dMobo) {
+      hard.push(`RAM ${dRam} tidak cocok dengan motherboard ${dMobo}`);
+    }
+  }
+  if (gpu && budget !== null && gpu.price < budget * 0.05) {
+    soft.push(
+      "GPU yang dipilih terlalu lemah untuk budget ini — naikkan kelas " +
+        "GPU dan sesuaikan komponen lain",
+    );
+  }
+  return { hard, soft };
+}
+
+/// Tag konteks ([platform: ...], [skor konsensus ...]) adalah konsumsi
+/// internal model — jangan bocor ke nama yang ditampilkan di aplikasi.
+function stripContextTags(name: string): string {
+  return name
+    .replace(/\s*\[(platform|skor konsensus)[^\]]*\]/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 // "harganya" -> "harga": imbuhan milik -nya/-ku/-mu dinormalisasi dulu.
 const POSSESSIVE_RE = /(nya|ku|mu)\b/gi;
 
@@ -211,7 +326,7 @@ function consensusLookup(
 function catalogContext(
   message: string,
   budget: number | null,
-  limit = 14,
+  perCategory = 5,
 ): string {
   const tokens = new Set(
     (message.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((t) =>
@@ -219,10 +334,21 @@ function catalogContext(
     ),
   );
   const cat = catalog as unknown as Record<string, unknown>;
-  const scored: Array<[number, string, number]> = [];
-  for (const key of ["gpu", "cpu", "ram", "storage", "motherboard"]) {
+  // Lantai anti-sampah: dengan budget besar, komponen di bawah 2% budget
+  // (CPU Rp135rb untuk budget 8,5jt) cuma menyesatkan model — kecuali
+  // user menyebut namanya persis (overlap >= 2). Tanpa lantai ini +
+  // urutan harga naik, konteks isinya barang termurah semua dan rakitan
+  // yang disusun Gemini jadi tidak masuk akal (kasus 2026-10-21).
+  const junkFloor = budget !== null && budget >= 1_000_000
+    ? Math.floor(budget * 0.02)
+    : 0;
+  type Cand = { overlap: number; line: string; price: number; model: string };
+  const byCategory = new Map<string, Cand[]>();
+  for (const key of ["cpu", "motherboard", "gpu", "ram", "storage"]) {
     const items = cat[key];
     if (!Array.isArray(items)) continue;
+    const scored: Cand[] = [];
+    const seen = new Set<string>();
     for (const it of items as Array<Record<string, unknown>>) {
       const model = String(it["model"] ?? "");
       const price = it["price"];
@@ -230,29 +356,117 @@ function catalogContext(
         price <= 0) {
         continue;
       }
+      const dedupeKey = model.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
       const mtok = new Set(model.toLowerCase().match(/[a-z0-9]+/g) ?? []);
       let overlap = 0;
       for (const t of tokens) if (mtok.has(t)) overlap++;
-      if (overlap > 0 || (budget !== null && price <= budget)) {
-        // Tempel skor konsensus multi-sumber bila ada (grounding LLM).
-        let tag = "";
-        if (key === "gpu" || key === "cpu") {
-          const con = consensusLookup(model, key);
-          if (con && con.consensus_score != null) {
-            tag = ` [skor konsensus ${
-              Math.round(con.consensus_score)
-            }/100, ${con.n_sources} sumber]`;
-          }
+      const inBudget = budget !== null && price <= budget;
+      if (overlap === 0 && !inBudget) continue;
+      if (price < junkFloor && overlap < 2) continue;
+      // Tag platform terstruktur (socket + generasi DDR) hasil parse
+      // nama produk: kompatibilitas jadi bisa dicek mekanis oleh model,
+      // bukan ditebak dari nama panjang. Kasus nyata: Ryzen AM4 sempat
+      // dipasangkan ke motherboard LGA1700.
+      let tag = "";
+      if (key === "cpu" || key === "motherboard" || key === "ram") {
+        const upper = model.toUpperCase();
+        const socket = upper.match(/AM[45]|LGA\s?\d{4}/)?.[0]?.replace(
+          /\s+/g,
+          "",
+        );
+        const ddr = upper.match(/DDR[345]/)?.[0];
+        const plat = [socket, ddr].filter(Boolean).join("·");
+        if (plat) tag += ` [platform: ${plat}]`;
+      }
+      // Tempel skor konsensus multi-sumber bila ada (grounding LLM).
+      // PENTING: += (bukan =) — assignment menimpa tag platform di atas.
+      if (key === "gpu" || key === "cpu") {
+        const con = consensusLookup(model, key);
+        if (con && con.consensus_score != null) {
+          tag += ` [skor konsensus ${
+            Math.round(con.consensus_score)
+          }/100, ${con.n_sources} sumber]`;
         }
-        scored.push([overlap, `[${key}] ${model}${tag}`, price]);
+      }
+      scored.push({ overlap, line: `${model}${tag}`, price, model });
+    }
+    scored.sort((a, b) => (b.overlap - a.overlap) || (b.price - a.price));
+    byCategory.set(key, scored);
+  }
+
+  // KOHERENSI PLATFORM: konteks campuran platform (AM4/AM5/LGA + DDR4/
+  // DDR5 dalam satu tangga) terbukti terlalu berat untuk model kecil —
+  // validator menolak mayoritas build. Jadi daftar motherboard & RAM
+  // disaring ke SATU platform jangkar dari CPU terkuat yang relevan:
+  // CPU yang disebut user (overlap tertinggi), else CPU termahal yang
+  // masuk tangga budget. Model tinggal mencocokkan harga.
+  const cpuCands = byCategory.get("cpu") ?? [];
+  const anchor = cpuCands.find((c) => c.overlap > 0 && socketOf(c.model)) ??
+    cpuCands.find((c) => socketOf(c.model));
+  const anchorSocket = anchor ? socketOf(anchor.model) : null;
+  if (anchorSocket) {
+    const mobos = byCategory.get("motherboard") ?? [];
+    const sameSocket = mobos.filter((c) => socketOf(c.model) === anchorSocket);
+    if (sameSocket.length > 0) {
+      byCategory.set("motherboard", sameSocket);
+      const anchorDdr = sameSocket
+        .map((c) => ddrOf(c.model))
+        .find((d) => d !== null);
+      if (anchorDdr) {
+        const rams = byCategory.get("ram") ?? [];
+        const sameDdr = rams.filter((c) => ddrOf(c.model) === anchorDdr);
+        if (sameDdr.length > 0) byCategory.set("ram", sameDdr);
       }
     }
   }
-  scored.sort((a, b) => (b[0] - a[0]) || (a[2] - b[2]));
-  const lines = scored.slice(0, limit).map(([, name, price]) =>
-    `- ${name}: Rp${formatRupiah(price)}`
-  );
-  return lines.length > 0 ? lines.join("\n") : "(katalog kosong)";
+
+  const sections: string[] = [];
+  for (const key of ["cpu", "motherboard", "gpu", "ram", "storage"]) {
+    const scored = byCategory.get(key);
+    if (!scored || scored.length === 0) continue;
+    {
+    // Pilihan per kategori = TANGGA HARGA, bukan top-5 termahal: ambil
+    // dulu yang disebut user (overlap tertinggi, maks 2), lalu isi sisa
+    // slot dengan barang termahal di bawah anak tangga budget
+    // (45/30/20/12/6%) supaya model bisa menyusun total 70-100% budget
+    // dari kombinasi realistis. Top-5 termahal saja membuat tiap
+    // komponen memakan seluruh budget sendiri-sendiri.
+    scored.sort((a, b) => (b.overlap - a.overlap) || (b.price - a.price));
+    const picked: typeof scored = [];
+    const pickedLines = new Set<string>();
+    const take = (p: (typeof scored)[number]) => {
+      if (pickedLines.has(p.line) || picked.length >= perCategory) return;
+      pickedLines.add(p.line);
+      picked.push(p);
+    };
+    for (const p of scored.filter((s) => s.overlap > 0).slice(0, 2)) take(p);
+    const ladder = budget !== null
+      ? [0.45, 0.3, 0.2, 0.12, 0.06].map((f) => Math.floor(budget * f))
+      : [0.85, 0.65, 0.45, 0.25, 0.1].map((f) => {
+        const prices = scored.map((s) => s.price).sort((a, b) => a - b);
+        return prices[Math.floor(f * (prices.length - 1))] ?? 0;
+      });
+    for (const cap of ladder) {
+      const under = scored
+        .filter((s) => s.price <= cap && !pickedLines.has(s.line))
+        .sort((a, b) => b.price - a.price)[0];
+      if (under) take(under);
+    }
+    // Slot masih kosong (katalog kategori kecil) -> isi dari yang tersisa.
+    for (const p of scored) take(p);
+    picked.sort((a, b) => b.price - a.price);
+    if (picked.length > 0) {
+      sections.push(
+        `[${key.toUpperCase()}]\n` +
+          picked.map((p) => `- ${p.line}: Rp${formatRupiah(p.price)}`)
+            .join("\n"),
+      );
+    }
+    }
+  }
+  return sections.length > 0 ? sections.join("\n") : "(katalog kosong)";
 }
 
 function formatRupiah(n: number): string {
@@ -303,6 +517,7 @@ async function geminiAttempt(
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: systemInstruction }] },
         contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.6, maxOutputTokens: 1024 },
       }),
       signal: AbortSignal.timeout(20_000),
     });
@@ -431,9 +646,22 @@ serve(async (req: Request) => {
   }
   const history = Array.isArray(payload.history) ? payload.history : [];
 
-  // Di luar topik -> tolak sopan tanpa memanggil Gemini (hemat kuota).
-  if (!isInScope(message)) {
+  // Handling lokal berlapis (tanpa Gemini, hemat kuota):
+  // 1. Sapaan murni -> sambutan + contoh pertanyaan.
+  // 2. Di luar topik -> tolak sopan.
+  // 3. Topik benar tapi bukan pertanyaan/permintaan -> arahan bertanya.
+  const inScope = isInScope(message);
+  // Sapaan murni: pola sapaan cocok DAN tidak ada kata kunci topik.
+  // (isInScope menganggap sapaan in-scope, jadi cek topiknya terpisah.)
+  const hasTopic = SCOPE_RE.test(message.replace(POSSESSIVE_RE, ""));
+  if (GREETING_RE.test(message) && !hasTopic) {
+    return jsonResponse({ reply: GREETING_REPLY });
+  }
+  if (!inScope) {
     return jsonResponse({ reply: REFUSAL_REPLY });
+  }
+  if (!isQuestionOrRequest(message)) {
+    return jsonResponse({ reply: STATEMENT_REPLY });
   }
 
   const budget = extractBudgetIdr(message);
@@ -442,49 +670,115 @@ serve(async (req: Request) => {
     `${String(m.role ?? "")}: ${String(m.text ?? "")}`
   ).join("\n");
   const prompt =
-    "Susun rekomendasi rakitan dari DAFTAR HARGA berikut (harga IDR, data real). " +
-    "JANGAN mengarang harga di luar daftar.\n" +
+    "Jawab pertanyaan user memakai DAFTAR HARGA berikut saja (harga IDR, data real). " +
+    "JANGAN mengarang harga atau produk di luar daftar.\n" +
     `Budget user (terdeteksi): ${budget ?? "tidak disebut"}\n` +
     `Riwayat chat:\n${historyLines || "(kosong)"}\n` +
     `DAFTAR HARGA:\n${context}\n` +
+    "ATURAN RAKITAN (kalau user minta rakitan):\n" +
+    "- Build WAJIB lengkap: CPU + Motherboard + RAM + SSD. GPU wajib untuk " +
+    "gaming/editing/streaming; untuk kantor boleh tanpa GPU (tulis alasannya di note).\n" +
+    "- Komponen harus KOMPATIBEL — cek tag [platform: ...] tiap item: socket " +
+    "CPU WAJIB sama dengan socket Motherboard (AM4≠LGA1700!), dan generasi " +
+    "DDR RAM WAJIB sama dengan Motherboard. Item tanpa tag platform jangan " +
+    "dipakai untuk CPU/Motherboard/RAM.\n" +
+    "- Untuk gaming/editing/streaming GPU TIDAK BOLEH kosong: kalau perlu, " +
+    "turunkan kelas CPU/RAM supaya GPU tetap masuk budget.\n" +
+    "- Kalau budget disebut: total rakitan targetkan 70-100% dari budget. " +
+    "DILARANG memilih komponen termurah; pilih kombinasi terbaik dari daftar " +
+    "yang mendekati budget.\n" +
+    "- Maksimal 7 item. 'total' = jumlah persis harga item.\n" +
+    "ATURAN JAWABAN: 'reply' santai Bahasa Indonesia, MAKSIMAL 100 kata, " +
+    "tanpa markdown. 'note' maksimal 30 kata. Kalau daftar harga tidak " +
+    "memungkinkan rakitan yang layak, tetap susun yang paling masuk akal " +
+    "dari daftar dan jelaskan keterbatasannya di note.\n" +
+    "Kalau user BUKAN minta rakitan (mis. menanyakan satu produk atau " +
+    "perbandingan), isi \"build\": null dan jawab pertanyaannya langsung " +
+    "memakai harga/skor produk itu dari daftar. JANGAN mengarang status " +
+    "stok di luar daftar; kalau produk yang ditanya tidak ada di daftar, " +
+    "katakan terus terang dan tawarkan alternatif terdekat dari daftar.\n" +
     "Balas HANYA dengan JSON valid (tanpa markdown fence): " +
     '{"reply": "<teks santai Bahasa Indonesia>", ' +
     '"build": {"items": [{"component": "CPU|GPU|RAM|SSD|Motherboard", "name": "<nama dari daftar>", "price": <int>}], ' +
     '"total": <int>, "note": "<catatan singkat>"}}';
 
   try {
-    const text = await geminiText(prompt, BANG_WORTH_SYSTEM);
-    const cleaned = text.trim().replace(/^```(?:json)?|```$/gm, "").trim();
-    let data: Record<string, unknown>;
-    try {
-      data = JSON.parse(cleaned) as Record<string, unknown>;
-      if (typeof data !== "object" || data === null) throw new Error();
-    } catch {
-      return jsonResponse({ reply: text.slice(0, 2000) });
-    }
-    let build: unknown = null;
-    const rawBuild = data["build"];
-    if (rawBuild && typeof rawBuild === "object" && !Array.isArray(rawBuild)) {
-      const b = rawBuild as Record<string, unknown>;
-      const rawItems = Array.isArray(b["items"]) ? b["items"] : [];
-      const items = rawItems.slice(0, 10).map((raw) => {
-        const i = (raw ?? {}) as Record<string, unknown>;
-        return {
-          component: String(i["component"] ?? "").slice(0, 32),
-          name: String(i["name"] ?? "").slice(0, 255),
-          price: Math.trunc(Number(i["price"] ?? 0)) || 0,
+    // Maks 3 percobaan: build hasil tiap percobaan divalidasi
+    // deterministik; kalau tidak kompatibel, model diberi tahu
+    // masalahnya persis dan disuruh menyusun ulang. Tetap gagal HARD ->
+    // build dibuang (user menerima teks saja, bukan rakitan ngawur).
+    let currentPrompt = prompt;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const text = await geminiText(currentPrompt, BANG_WORTH_SYSTEM);
+      const cleaned = text.trim().replace(/^```(?:json)?|```$/gm, "").trim();
+      let data: Record<string, unknown>;
+      try {
+        data = JSON.parse(cleaned) as Record<string, unknown>;
+        if (typeof data !== "object" || data === null) throw new Error();
+      } catch {
+        return jsonResponse({ reply: text.slice(0, 2000) });
+      }
+      let build: {
+        items: BuildItem[];
+        total: number;
+        note: string;
+      } | null = null;
+      const rawBuild = data["build"];
+      if (
+        rawBuild && typeof rawBuild === "object" && !Array.isArray(rawBuild)
+      ) {
+        const b = rawBuild as Record<string, unknown>;
+        const rawItems = Array.isArray(b["items"]) ? b["items"] : [];
+        const items = rawItems.slice(0, 7).map((raw) => {
+          const i = (raw ?? {}) as Record<string, unknown>;
+          return {
+            component: String(i["component"] ?? "").slice(0, 32),
+            name: stripContextTags(String(i["name"] ?? "").slice(0, 255)),
+            price: Math.trunc(Number(i["price"] ?? 0)) || 0,
+          };
+        });
+        build = {
+          items,
+          // Total dihitung ulang di server — aritmetika model tidak
+          // bisa dipercaya (pernah total di bawah jumlah itemnya).
+          total: items.reduce((acc, i) => acc + i.price, 0),
+          note: String(b["note"] ?? "").slice(0, 500),
         };
-      });
-      build = {
-        items,
-        total: Math.trunc(Number(b["total"] ?? 0)) || 0,
-        note: String(b["note"] ?? "").slice(0, 500),
-      };
+        // Build tanpa item = bukan build — jangan kirim kartu kosong.
+        if (build.items.length === 0) build = null;
+      }
+      let replyText = String(data["reply"] ?? "").slice(0, 2000);
+      if (build !== null && build.items.length > 0) {
+        const { hard, soft } = validateBuild(build.items, budget);
+        if (attempt < 2 && (hard.length > 0 || soft.length > 0)) {
+          currentPrompt = prompt +
+            "\nCATATAN PERBAIKAN: susunan sebelumnya DITOLAK sistem " +
+            `karena: ${[...hard, ...soft].join("; ")}. Susun ulang build ` +
+            "yang kompatibel dari daftar yang sama.";
+          continue;
+        }
+        // Percobaan terakhir: masalah HARD (platform tak kompatibel)
+        // tetap membuang build; masalah SOFT diterima apa adanya.
+        // Kalau build dibuang, teks jangan mengklaim ada rakitan.
+        if (hard.length > 0) {
+          build = null;
+          replyText = (replyText +
+            "\n\nRakitan detailnya belum lolos cek kompatibilitas " +
+            "otomatis, jadi belum kutampilkan — tanya lagi atau sebut " +
+            "komponen incaranmu ya!").slice(0, 2000);
+        }
+      }
+      // Transparansi faktual: kalau total tetap melewati budget, note
+      // diberi tahu apa adanya (angka dari data, bukan karangan).
+      if (build !== null && budget !== null && build.total > budget) {
+        build.note = (build.note +
+          ` Total rakitan Rp${formatRupiah(build.total)} — di atas ` +
+          `budget Rp${formatRupiah(budget)}.`).trim().slice(0, 500);
+      }
+      return jsonResponse({ reply: replyText, build });
     }
-    return jsonResponse({
-      reply: String(data["reply"] ?? "").slice(0, 2000),
-      build,
-    });
+    // Tidak tercapai (loop selalu return/continue), pengaman tipe.
+    return jsonResponse({ reply: "Maaf, coba lagi ya." });
   } catch (e) {
     if (e instanceof ChatError) {
       return jsonResponse({ error: e.message }, e.status);

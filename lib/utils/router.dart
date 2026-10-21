@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import 'package:worthbang/providers/auth_controller.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
-import 'package:worthbang/screens/price_check_screen.dart';
 import 'package:worthbang/screens/login_screen.dart';
 import 'package:worthbang/screens/register_screen.dart';
 import 'package:worthbang/screens/tab_screens.dart';
@@ -115,13 +114,9 @@ class BottomNavShell extends ConsumerWidget {
           Expanded(child: navigationShell),
         ],
       ),
-      // FAB aksi utama (DESIGN(reset) §5.6): cek harga cepat.
-      floatingActionButton: MonexFab(
-        tooltip: AppStrings.priceCheckTitle,
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const PriceCheckScreen()),
-        ),
-      ),
+      // TIDAK ada FAB di shell: FAB global menutupi konten semua menu
+      // yang di-push di atasnya. FAB chatbot tinggal di HomeScreen —
+      // hanya tampil di Beranda root (keputusan Dan 2026-10-21).
       bottomNavigationBar: MonexBottomNavBar(
         selectedIndex: navigationShell.currentIndex,
         onSelected: _goBranch,

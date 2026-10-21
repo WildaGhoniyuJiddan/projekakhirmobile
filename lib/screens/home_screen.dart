@@ -80,6 +80,14 @@ class HomeScreen extends StatelessWidget {
         title: const Text(AppStrings.homeTitle),
         titleSpacing: 4,
       ),
+      // FAB khusus chatbot, HANYA di Beranda root: FAB tinggal di
+      // Scaffold ini, jadi otomatis tertutup tiap user masuk menu
+      // (halaman push menutupi Beranda) dan tidak tampil di tab lain.
+      floatingActionButton: MonexFab(
+        icon: Icons.smart_toy_outlined,
+        tooltip: AppStrings.chatTitle,
+        onPressed: () => _openPage(context, const ChatScreen()),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           MonexSpacing.screenPaddingH,
