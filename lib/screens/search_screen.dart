@@ -178,7 +178,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
             ),
             if (state == null) ...[
               const SizedBox(height: MonexSpacing.sectionGap),
-              _ForYouSection(key: _forYouKey),
+              _ForYouSection(key: _forYouKey, mode: _mode),
             ],
             if (state is ApiLoading)
               const Padding(
@@ -335,7 +335,11 @@ class _ShowcaseItem {
 /// skor atas; alasan dari rank(). Ketuk kartu = event viewDetail,
 /// lalu buka Cek Harga dengan nama produk terisi.
 class _ForYouSection extends StatefulWidget {
-  const _ForYouSection({super.key});
+  const _ForYouSection({super.key, required this.mode});
+
+  /// Mode section menu Cari ('pc' | 'laptop'): etalase mengikuti —
+  /// 'laptop' hanya produk laptop, 'pc' semua selain laptop.
+  final String mode;
 
   @override
   State<_ForYouSection> createState() => _ForYouSectionState();
@@ -350,14 +354,26 @@ class _ForYouSectionState extends State<_ForYouSection> {
     _load();
   }
 
+  @override
+  void didUpdateWidget(_ForYouSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mode != widget.mode) _load();
+  }
+
   /// Muat (ulang) etalase — dipanggil juga setelah onboarding selesai
   /// agar urutan langsung memakai profil baru.
   Future<void> reload() => _load();
 
   Future<void> _load() async {
-    final products = await ProductsCatalog.load();
+    final mode = widget.mode;
+    final all = await ProductsCatalog.load();
+    final products = [
+      for (final p in all)
+        if (mode == 'laptop' ? p.category == 'laptop' : p.category != 'laptop')
+          p,
+    ];
     if (products.isEmpty) {
-      if (mounted) setState(() => _top = const []);
+      if (mounted && widget.mode == mode) setState(() => _top = const []);
       return;
     }
     final engine =
@@ -380,7 +396,7 @@ class _ForYouSectionState extends State<_ForYouSection> {
         if (productOf[it.model] != null)
           _ShowcaseItem(productOf[it.model]!, reasonOf[it.model]),
     ];
-    if (!mounted) return;
+    if (!mounted || widget.mode != mode) return;
     setState(() => _top = top);
   }
 
