@@ -50,10 +50,21 @@ tabel `profiles`, dan fungsi RPC `match_listings`.
 
 ## 5. Set secret Gemini & deploy Edge Function
 
+**Status 2026-10-21: SUDAH TER-DEPLOY & LIVE** (via Management API,
+function `bang-worth` ACTIVE v1; secret `GEMINI_API_KEY` terpasang).
+Model memakai ROTASI (secret `GEMINI_MODELS`, pisah koma): model
+dicoba berurutan, yang mati/sibuk/habis kuota dilewati. Hasil uji
+key saat itu: `gemini-3.5-flash-lite` hidup (dipakai pertama),
+`gemini-3.8-flash` hidup tapi sibuk, `gemini-2.5-flash`,
+`gemini-2.5-flash-lite`, `gemini-1.5-flash` mati (404 — 1.5-flash
+dimatikan Google Sep 2025). Kalau chat mati lagi, uji model satu per
+satu pakai key lalu perbarui secret ini — jangan mengganti key dulu.
+
+Untuk deploy ulang manual:
+
 ```bash
 supabase secrets set GEMINI_API_KEY=<api-key-gemini-kamu>
-# Opsional, default-nya gemini-1.5-flash:
-# supabase secrets set GEMINI_MODEL=gemini-1.5-flash
+supabase secrets set GEMINI_MODELS=gemini-3.5-flash-lite,gemini-3.8-flash
 
 supabase functions deploy bang-worth
 ```
