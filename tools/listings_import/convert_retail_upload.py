@@ -35,6 +35,19 @@ def norm_key(name: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
+# Harga typo/placeholder penjual (pola angka asal ketik) — gerbang sama
+# dgn normalize_products.is_placeholder_price: item dibuang.
+PLACEHOLDER_PRICES = {1111111, 2323232, 77752777, 123123, 1231234,
+                      123456, 999999, 111111, 222222, 1234567}
+
+
+def is_placeholder_price(price: int) -> bool:
+    s = str(price)
+    return price in PLACEHOLDER_PRICES \
+        or re.fullmatch(r"(\d)\1{5,}", s) is not None \
+        or re.fullmatch(r"(123)+|(1234)+", s) is not None
+
+
 def main() -> None:
     retail_up = json.loads((UPLOAD_DIR / "retail_catalog.json").read_text())
     bench_up = json.loads((UPLOAD_DIR / "benchmark_scores.json").read_text())
@@ -47,12 +60,18 @@ def main() -> None:
         return str(it.get("model") or it.get("name") or "")
 
     # --- 1. Basis: katalog retail upload (format item: model+price) ---
+    dropped_retail_ph = 0
     for cat in ("gpu", "cpu", "motherboard", "ram", "storage"):
         items = []
         for it in retail_up.get(cat, []):
+            if is_placeholder_price(int(it["price"])):
+                dropped_retail_ph += 1
+                continue
             items.append({"model": it["model"], "price": int(it["price"])})
         merged[cat] = items
         stats[cat] = {"retail": len(items), "pengisi": 0}
+    if dropped_retail_ph:
+        print(f"  gerbang placeholder: {dropped_retail_ph} retail dibuang")
 
     # Harga kanonik RAM/storage generik -> item jangkar generik.
     for src, cat, prefix in (
@@ -109,6 +128,10 @@ def main() -> None:
             if norm_key(nm) in base_keys:
                 continue
             price = int(it["price"])
+            if is_placeholder_price(price):
+                dropped += 1
+                stats[cat]["dibuang"] += 1
+                continue
             is_second = "(bekas)" in nm.lower()
             implausible = False
             for core in digit_cores(nm):

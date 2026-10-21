@@ -373,6 +373,54 @@ LAPTOP_EVIDENCE = re.compile(
     r"\blaptop\b|\bnotebook\b|\d{2}(\.\d)?\s?(inch|inci|\")|"
     r"\b(f1[57]|a1[57]|fx5\d\d|fa5\d\d|an5\d\d|anv1[57]|ph3\d\d|"
     r"g51\d|g71\d)\b|\b\d{4,5}(h|hx|hs)\b", re.I)
+# Line laptop KUAT (audit arah sebaliknya): laptop utuh yang nyasar di
+# kategori komponen lolos kemarin karena polanya tak dikenal (MSI
+# "GAMING Thin" disela kata, ASUS "Gaming K16", Acer Nitro, kode model
+# TUF FA/FX yang menyatu dgn suffix huruf). Pola ini menang atas kepala
+# komponen. Kode TUF wajib ekor huruf opsional: \b sesudah digit gagal
+# ("FA506NCQ", "FX505DY" satu token). Sapphire NITRO+ (GPU/mobo) aman:
+# pola nitro menuntut spasi + angka seri laptop, bukan '+'.
+LAPTOP_LINES_STRONG = [re.compile(p, re.I) for p in [
+    r"msi\s+gaming\s+thin", r"asus\s+gaming\s+k\d",
+    r"acer\s+nitro", r"\bnitro\s+(5|v\s?\d|an\d)",
+    r"axioo\s+(hype|pongo)",
+    r"ideapad", r"vivobook", r"zenbook", r"thinkpad", r"thinkbook",
+    r"macbook", r"expertbook",
+]]
+TUF_LAPTOP_CODE = re.compile(r"\b(?:fa|fx)5\d{2}[a-z]{0,3}\b", re.I)
+TUF_LAPTOP_CODE2 = re.compile(r"\b[fa]1[57]\b", re.I)
+# Legion/LOQ ambigu (Legion juga seri SSD Lenovo): wajib bukti laptop
+# pendamping (token laptop, layar, CPU mobile, refresh rate).
+LAPTOP_LINES_GATED = [re.compile(p, re.I) for p in [r"\blegion\b", r"\bloq\b"]]
+LAPTOP_EVIDENCE2 = re.compile(
+    r"\blaptop\b|\bnotebook\b|\d{2}(\.\d)?\s?(inch|inci|\")|"
+    r"\b\d{3,5}(h|hx|hs)\b|\d{2,3}\s?hz\b", re.I)
+COMPONENT_CATS = ("gpu", "cpu", "motherboard", "ram", "storage")
+
+
+def strong_laptop_line(low: str, tok: list[str]) -> bool:
+    if any(p.search(low) for p in LAPTOP_LINES_STRONG):
+        return True
+    if ("tuf" in tok or "asus" in tok) and (
+            TUF_LAPTOP_CODE.search(low) or TUF_LAPTOP_CODE2.search(low)):
+        return True
+    if any(p.search(low) for p in LAPTOP_LINES_GATED) and \
+            LAPTOP_EVIDENCE2.search(low):
+        return True
+    return False
+
+
+# Harga typo/placeholder penjual (pola angka asal ketik): item dibuang,
+# bukan dipindah. Juga dipakai gerbang convert_retail_upload.py.
+PLACEHOLDER_PRICES = {1111111, 2323232, 77752777, 123123, 1231234,
+                      123456, 999999, 111111, 222222, 1234567}
+
+
+def is_placeholder_price(price: int) -> bool:
+    s = str(price)
+    return price in PLACEHOLDER_PRICES \
+        or re.fullmatch(r"(\d)\1{5,}", s) is not None \
+        or re.fullmatch(r"(123)+|(1234)+", s) is not None
 # Model GPU Intel Arc yg tabrakan dgn pola chipset board (A380, B580, ...)
 ARC_MODELS = {"a310", "a380", "a580", "a750", "a770", "b570", "b580"}
 STORAGE_LINES = [re.compile(p, re.I) for p in [
@@ -451,6 +499,17 @@ def reclassify(raw: str, source_cat: str) -> tuple[str | None, str]:
         return "pc", "paket sistem utuh"
     if tok and tok[0] == "cpu" and ("rakitan" in tok or "gaming" in tok):
         return "pc", "'cpu' = sebutan tower rakitan"
+    # Line laptop KUAT dihitung sekali: menang atas kepala komponen,
+    # kecuali kepala nama jelas part tunggal (SSD/RAM/... di token
+    # pertama = part beneran, mis. "SSD ... Thinkpad" tetap storage).
+    strong_hit = bool(tok) \
+        and (tok[0] not in COMPONENT_HEADS | STORAGE_NOUNS) \
+        and strong_laptop_line(low, tok)
+    # 1b. Di kategori komponen -> laptop sekarang (sebelum kepala
+    # storage); dari sumber lain, strong_hit dipakai lagi di langkah 3
+    # agar item tidak osilasi balik ke komponen.
+    if source_cat in COMPONENT_CATS and strong_hit:
+        return "laptop", "line laptop kuat di kategori komponen"
     # 0c. Monitor / HP-tablet sebagai kepala -> drop
     if ("monitor" in tok[:4] and re.search(r"\d{2}(\.\d)?\s?(inch|inci|\")", low)) \
             or (tok and tok[0] == "monitor"):
@@ -480,7 +539,7 @@ def reclassify(raw: str, source_cat: str) -> tuple[str | None, str]:
     if any(p.search(" ".join(tok[:5])) for p in STORAGE_LINES):
         return "storage", "line storage dikenal di kepala"
     # 3. Kepala laptop
-    if line_hit:
+    if line_hit or strong_hit:
         return "laptop", "line laptop dikenal"
     if head3 & {"laptop", "notebook"}:
         return "laptop", "token laptop di kepala"
@@ -560,6 +619,8 @@ def qa_scan(products: list[dict]) -> list[str]:
         if cat in ("gpu", "cpu", "motherboard", "ram", "storage") \
                 and tk and tk[0] == "laptop":
             viol.append(f"komponen berkepala laptop: {name} [{cat}]")
+        if cat in COMPONENT_CATS and strong_laptop_line(low, tk):
+            viol.append(f"komponen berisi line laptop kuat: {name} [{cat}]")
     return viol
 
 
@@ -607,6 +668,8 @@ def main() -> None:
     drop_reasons: Counter = Counter()
     dropped_examples: list[tuple[str, str, str]] = []
     moved_examples: list[tuple[str, str, str]] = []
+    price_drops: list[tuple[str, str, int]] = []
+    strong_viol: list[tuple[str, str, str]] = []
     for cat in CAT_ORDER:
         items = current.get(cat)
         if not isinstance(items, list):
@@ -614,7 +677,15 @@ def main() -> None:
         raw_counts[cat] = len(items)
         for it in items:
             raw_name, price = str(it["model"]), int(it["price"])
+            if is_placeholder_price(price):
+                dropped += 1
+                price_drops.append((raw_name, cat, price))
+                continue
             new_cat, note = reclassify(raw_name, cat)
+            if cat in COMPONENT_CATS and new_cat not in (None, "laptop") \
+                    and strong_laptop_line(strip_segments(raw_name.lower()),
+                                           _head_tokens(raw_name)):
+                strong_viol.append((raw_name, cat, new_cat))
             if new_cat is None:
                 dropped += 1
                 drop_reasons[note] += 1
@@ -678,10 +749,16 @@ def main() -> None:
     print("CONTOH PINDAH:")
     for raw_name, frm, to in moved_examples:
         print(f"  [{frm}->{to}] {raw_name[:80]}")
+    print(f"DROP HARGA PLACEHOLDER: {len(price_drops)}")
+    for raw_name, cat, price in price_drops:
+        print(f"  DROP-HARGA [{cat}] Rp{price:,}: {raw_name[:80]}")
     viol = qa_scan(products)
-    print(f"QA: {len(viol)} pelanggaran")
+    print(f"QA: {len(viol)} pelanggaran (+{len(strong_viol)} mentah "
+          f"line-kuat lolos)")
     for v in viol[:15]:
         print(f"  QA! {v}")
+    for raw_name, cat, new_cat in strong_viol[:10]:
+        print(f"  QA-MENTAH! [{cat}->{new_cat}] {raw_name[:80]}")
     old_ok, kept, lost = rebuild_manifest(products)
     print(f"MANIFEST: id 'ok' lama {old_ok} -> bertahan {kept}, "
           f"hilang {len(lost)}")

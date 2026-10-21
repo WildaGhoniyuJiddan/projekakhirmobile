@@ -196,6 +196,19 @@ function isBuildIntent(text: string): boolean {
     extractBudgetIdr(text) !== null;
 }
 
+/// Guard polusi runtime — lapis kedua di belakang reklasifikasi data
+/// katalog: unit laptop utuh yang masih menyelinap ke kategori
+/// komponen tidak boleh masuk konteks/lookup komponen. Polanya line
+/// laptop yang kuat dan spesifik (bukan kata "laptop" generik — nama
+/// komponen sah bisa saja menyebut kompatibilitas laptop).
+const LAPTOP_LINE_COMPONENT_RE =
+  /\bmsi\s+gaming\s+thin\b|\basus\s+gaming\s+k\d|\bacer\s+nitro\s+\d|\bnitro\s+[av]\d|\btuf\s+gaming\s+f[ax]\d|\btuf\s+fx\d|\baxioo\s+hype\b|\bideapad\b|\bvivobook\b|\bzenbook\b|\bthinkpad\b|\bmacbook\b|\bexpertbook\b/i;
+
+function isLaptopLineInComponent(key: string, model: string): boolean {
+  if (key === "laptop" || key === "pc") return false;
+  return LAPTOP_LINE_COMPONENT_RE.test(model);
+}
+
 /// Jalur cepat pertanyaan harga produk spesifik — dijawab DETERMINISTIK
 /// dari katalog, tanpa Gemini. Model terbukti berulang kali
 /// menghalusinasi "budget" dari angka nama produk (RTX 5070 -> "budget
@@ -227,6 +240,7 @@ function priceLookupReply(message: string): string | null {
       const model = String(it["model"] ?? "");
       const price = it["price"];
       if (!model || typeof price !== "number" || price <= 0) continue;
+      if (isLaptopLineInComponent(key, model)) continue;
       const mtok = new Set(model.toLowerCase().match(/[a-z0-9]+/g) ?? []);
       let overlap = 0;
       for (const t of tokens) if (mtok.has(t)) overlap++;
@@ -239,7 +253,11 @@ function priceLookupReply(message: string): string | null {
   const maxOv = Math.max(...hits.map((h) => h.overlap));
   const top = hits
     .filter((h) => h.overlap === maxOv)
-    .sort((a, b) => a.price - b.price)
+    // Varian [Box] (harga utama retail) sebelum [Tray], lalu harga naik.
+    .sort((a, b) =>
+      (Number(/\[tray\]/i.test(a.name)) - Number(/\[tray\]/i.test(b.name))) ||
+      (a.price - b.price)
+    )
     .slice(0, 3);
   const lines = top.map((h) => `• ${h.name} — Rp${formatRupiah(h.price)}`);
   return lines.join("\n") +
@@ -266,6 +284,14 @@ function socketOf(name: string): string | null {
 
 function ddrOf(name: string): string | null {
   return name.toUpperCase().match(/DDR[345]/)?.[0] ?? null;
+}
+
+/// Deteksi RAM laptop (SODIMM). Penjual lokal menulis banyak ejaan —
+/// "SODIMM", "Sodim" (satu m), "Soddim", "leptop" — dan regex lama
+/// /so-?dimm/i melewatkannya (item katalog berekjaan menyimpang lolos
+/// sebagai RAM desktop). Satu helper untuk semua titik deteksi.
+function isSodimm(name: string): boolean {
+  return /\b(so-?dim+m?|sod+im+m?|leptop)\b/i.test(name);
 }
 
 /// Masalah HARD = build menyesatkan secara faktual (platform tidak
@@ -319,7 +345,7 @@ function validateBuild(
   }
   // SODIMM = RAM laptop; model terbukti tetap memilihnya untuk build
   // desktop walau sudah ditandai — jadikan pelanggaran HARD.
-  if (ram && /so-?dimm/i.test(ram.name)) {
+  if (ram && isSodimm(ram.name)) {
     hard.push("RAM yang dipilih adalah SODIMM (RAM laptop) — pilih RAM DIMM desktop");
   }
   // Build untuk gaming/editing/streaming TANPA GPU = tidak masuk akal
@@ -361,17 +387,27 @@ function isInScope(message: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Ekstrak budget IDR dari pesan (port dari Python)
+// Ekstrak budget IDR dari pesan
 // ---------------------------------------------------------------------------
 
-const BUDGET_RE = /(\d+(?:[.,]\d+)?)\s*(juta|jt|miliar|m|rb|ribu|k)?/i;
-
 function extractBudgetIdr(message: string): number | null {
-  const m = BUDGET_RE.exec(message.replace(/,/g, "."));
-  if (!m) return null;
-  const num = parseFloat(m[1]);
-  const unit = (m[2] ?? "").toLowerCase();
-  const mult = ({
+  // Bersihkan angka yang BUKAN budget lebih dulu. Regex lama menangkap
+  // angka PERTAMA apa pun: "Ryzen 5 5600 budget 10 juta" terbaca null
+  // (berhenti di "5" milik Ryzen) dan "1080p dana 12 juta" terbaca
+  // Rp1.080. Yang dibersihkan: seri hardware (RTX 4060, Ryzen 5 5600,
+  // Core i5-12400, Ultra 7, DDR5, LGA1700, AM5), resolusi (1080p), dan
+  // spek bersatuan (16gb, 3200mhz, 500watt).
+  const cleaned = message
+    .replace(
+      /\b(rtx|gtx|rx|arc)\s*-?\s*\d+[a-z0-9]*|\bryzen\s*[3579]?\s*-?\s*\d+[a-z0-9]*|\bcore\s*i[3579]\s*-?\s*\d+[a-z0-9]*|\bultra\s*[579](\s*-?\s*\d+[a-z0-9]*)?|\b(gen|ddr|pcie|nvme|lga|am[45])\s*-?\s*\d+[a-z0-9]*/gi,
+      " ",
+    )
+    .replace(/\b\d{3,4}p\b/gi, " ")
+    .replace(
+      /\b\d+(?:[.,]\d+)?\s*(gb|tb|mhz|ghz|watt|hz|inch|inci|core|thread)\b/gi,
+      " ",
+    );
+  const mult: Record<string, number> = {
     juta: 1_000_000,
     jt: 1_000_000,
     miliar: 1_000_000_000,
@@ -379,10 +415,30 @@ function extractBudgetIdr(message: string): number | null {
     rb: 1_000,
     ribu: 1_000,
     k: 1_000,
-  } as Record<string, number>)[unit] ?? 1;
-  // Angka polos seperti 8000000 sudah IDR; "8" saja ambigu -> abaikan.
-  if (mult === 1 && num < 1000) return null;
-  return Math.trunc(num * mult);
+  };
+  // Prioritas 1: angka + satuan uang eksplisit. Ambil match TERAKHIR
+  // yang masuk akal — budget lazimnya disebut setelah nama komponen
+  // ("...RTX 4060, budgetnya 10 juta"), dan kewajiban satuan mencegah
+  // angka seri yang lolos pembersihan terbaca sebagai uang.
+  let best: number | null = null;
+  for (
+    const m of cleaned.matchAll(
+      /(\d+(?:[.,]\d+)?)\s*(juta|jt|miliar|m|rb|ribu|k)\b/gi,
+    )
+  ) {
+    const val = Math.trunc(
+      parseFloat(m[1].replace(",", ".")) * (mult[m[2].toLowerCase()] ?? 1),
+    );
+    if (val >= 100_000) best = val;
+  }
+  if (best !== null) return best;
+  // Prioritas 2: rupiah mentah — format ribuan bertitik (8.500.000)
+  // atau deretan 7-9 digit (8500000).
+  for (const m of cleaned.matchAll(/(\d{1,3}(?:\.\d{3}){2,}|\d{7,9})\b/g)) {
+    const val = parseInt(m[1].replace(/\./g, ""), 10);
+    if (val >= 1_000_000 && val <= 500_000_000) best = val;
+  }
+  return best;
 }
 
 // ---------------------------------------------------------------------------
@@ -450,7 +506,7 @@ function catalogContext(
   // agar model tidak "melarikan diri" menawarkannya sebagai pengganti
   // rincian per part (kasus yang dilaporkan Dan 2026-10-21).
   componentsOnly = false,
-): string {
+): { context: string; allowed: Map<string, number> } {
   const KEYS = componentsOnly
     ? ["cpu", "motherboard", "gpu", "ram", "storage"]
     : ["cpu", "motherboard", "gpu", "ram", "storage", "laptop", "pc"];
@@ -468,6 +524,12 @@ function catalogContext(
     ),
   );
   const cat = catalog as unknown as Record<string, unknown>;
+  // Peta grounding: nama ternormalisasi (sq) -> harga untuk SEMUA
+  // kandidat yang lolos gerbang dasar di loop bawah (sebelum saringan
+  // overlap/budget). Dipakai handler untuk menimpa harga build dari
+  // model dengan harga katalog asli dan membuang produk karangan
+  // (lihat enforceCatalogGrounding).
+  const allowed = new Map<string, number>();
   // Lantai anti-sampah: dengan budget besar, komponen di bawah 2% budget
   // (CPU Rp135rb untuk budget 8,5jt) cuma menyesatkan model — kecuali
   // user menyebut namanya persis (overlap >= 2). Tanpa lantai ini +
@@ -490,6 +552,11 @@ function catalogContext(
         price <= 0) {
         continue;
       }
+      // Guard polusi (lihat LAPTOP_LINE_COMPONENT_RE): item yang
+      // gugur di sini juga tidak masuk peta grounding `allowed`.
+      if (isLaptopLineInComponent(key, model)) continue;
+      const normName = sq(model);
+      if (!allowed.has(normName)) allowed.set(normName, price);
       const dedupeKey = model.toLowerCase().replace(/[^a-z0-9]/g, "");
       if (seen.has(dedupeKey)) continue;
       seen.add(dedupeKey);
@@ -497,7 +564,7 @@ function catalogContext(
       // tangga DDR5 katalog didominasi SODIMM dan model kecil terus
       // memilihnya untuk build desktop sampai validator membuang
       // seluruh build. Tag + aturan prompt tidak cukup.
-      if (key === "ram" && /so-?dimm/i.test(model)) continue;
+      if (key === "ram" && isSodimm(model)) continue;
       const mtok = new Set(model.toLowerCase().match(/[a-z0-9]+/g) ?? []);
       let overlap = 0;
       for (const t of tokens) if (mtok.has(t)) overlap++;
@@ -692,7 +759,43 @@ function catalogContext(
     }
     }
   }
-  return sections.length > 0 ? sections.join("\n") : "(katalog kosong)";
+  return {
+    context: sections.length > 0 ? sections.join("\n") : "(katalog kosong)",
+    allowed,
+  };
+}
+
+/// Penegakan grounding atas build yang disusun model: setiap nama
+/// item dicocokkan ke peta `allowed` dari catalogContext. Cocok
+/// persis (atau substring dua arah untuk nama yang dipotong model)
+/// -> harga DITIMPA harga katalog, karena angka dari model tidak
+/// bisa dipercaya. Tidak cocok sama sekali -> produk karangan;
+/// namanya dikembalikan sebagai daftar halusinasi untuk diperlakukan
+/// handler sebagai pelanggaran HARD.
+function enforceCatalogGrounding(
+  items: BuildItem[],
+  allowed: Map<string, number>,
+): { items: BuildItem[]; hallucinated: string[] } {
+  const kept: BuildItem[] = [];
+  const hallucinated: string[] = [];
+  for (const item of items) {
+    const norm = sq(item.name);
+    let price = allowed.get(norm);
+    if (price === undefined && norm.length >= 8) {
+      for (const [key, p] of allowed) {
+        if (key.includes(norm) || norm.includes(key)) {
+          price = p;
+          break;
+        }
+      }
+    }
+    if (price === undefined) {
+      hallucinated.push(item.name);
+    } else {
+      kept.push({ ...item, price });
+    }
+  }
+  return { items: kept, hallucinated };
 }
 
 function formatRupiah(n: number): string {
@@ -719,6 +822,39 @@ type GeminiAttempt =
   | { ok: true; text: string }
   | { ok: false; rotate: boolean; err: ChatError };
 
+/// Skema keluaran terstruktur untuk Gemini: mengunci bentuk JSON
+/// {reply, build} di level API (responseMimeType + responseSchema),
+/// bukan cuma lewat instruksi teks — model kecil jauh lebih patuh.
+/// build nullable: pertanyaan non-rakitan memang tanpa build.
+const CHAT_RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    reply: { type: "STRING" },
+    build: {
+      type: "OBJECT",
+      nullable: true,
+      properties: {
+        items: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              component: { type: "STRING" },
+              name: { type: "STRING" },
+              price: { type: "INTEGER" },
+            },
+            required: ["component", "name", "price"],
+          },
+        },
+        total: { type: "INTEGER" },
+        note: { type: "STRING" },
+      },
+      required: ["items", "total", "note"],
+    },
+  },
+  required: ["reply", "build"],
+};
+
 async function geminiAttempt(
   model: string,
   apiKey: string,
@@ -732,22 +868,50 @@ async function geminiAttempt(
   });
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-  let resp: Response;
-  try {
-    resp = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemInstruction }] },
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.6, maxOutputTokens: 1024 },
-      }),
-      signal: AbortSignal.timeout(20_000),
-    });
-  } catch {
+  const doFetch = async (useSchema: boolean): Promise<Response | null> => {
+    try {
+      return await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            // 0.15: tugasnya faktual (menyalin harga dari daftar),
+            // bukan kreatif — temperatur tinggi cuma menambah
+            // karangan di luar katalog.
+            temperature: 0.15,
+            maxOutputTokens: 1024,
+            ...(useSchema
+              ? {
+                responseMimeType: "application/json",
+                responseSchema: CHAT_RESPONSE_SCHEMA,
+              }
+              : {}),
+          },
+        }),
+        signal: AbortSignal.timeout(20_000),
+      });
+    } catch {
+      return null;
+    }
+  };
+  let resp = await doFetch(true);
+  if (resp !== null && resp.status === 400) {
+    // Kemungkinan skema ditolak endpoint/model ini: coba SEKALI lagi
+    // tanpa skema untuk model yang sama sebelum rotasi — jangan
+    // korbankan model yang sehat cuma karena skema.
+    try {
+      await resp.text();
+    } catch {
+      // Badan error tidak terbaca — tidak masalah, lanjut saja.
+    }
+    resp = await doFetch(false);
+  }
+  if (resp === null) {
     return fail(true, "Chat service unavailable, try again later");
   }
   if (resp.status !== 200) {
@@ -948,7 +1112,7 @@ serve(async (req: Request) => {
       if (budget !== null) break;
     }
   }
-  const context = catalogContext(
+  const { context, allowed } = catalogContext(
     effectiveMessage,
     budget,
     brandPref,
@@ -975,7 +1139,7 @@ serve(async (req: Request) => {
     "kalau 'tidak disebut', jangan menyebut atau mengarang angka " +
     "budget apa pun.\n" +
     prefLine +
-    `Riwayat chat:\n${historyLines || "(kosong)"}\n` +
+    `Riwayat chat (sudah lewat, hanya konteks):\n${historyLines || "(kosong)"}\n` +
     `DAFTAR HARGA:\n${context}\n` +
     "ATURAN RAKITAN (kalau user minta rakitan):\n" +
     "- Build WAJIB lengkap: CPU + Motherboard + RAM + SSD. GPU wajib untuk " +
@@ -1006,10 +1170,17 @@ serve(async (req: Request) => {
     "memakai harga/skor produk itu dari daftar. JANGAN mengarang status " +
     "stok di luar daftar; kalau produk yang ditanya tidak ada di daftar, " +
     "katakan terus terang dan tawarkan alternatif terdekat dari daftar.\n" +
+    "ATURAN VARIAN: bila daftar memuat varian [Box] dan [Tray] produk " +
+    "yang sama, sebutkan harga [Box] sebagai harga utama; varian [Tray] " +
+    "hanya disebut bila user secara eksplisit menyebut tray.\n" +
     "Balas HANYA dengan JSON valid (tanpa markdown fence): " +
     '{"reply": "<teks santai Bahasa Indonesia>", ' +
     '"build": {"items": [{"component": "CPU|GPU|RAM|SSD|Motherboard", "name": "<nama dari daftar>", "price": <int>}], ' +
-    '"total": <int>, "note": "<catatan singkat>"}}';
+    '"total": <int>, "note": "<catatan singkat>"}}' +
+    "\nPERTANYAAN USER SAAT INI (jawab pertanyaan ini):\n" + message +
+    "\nRiwayat chat di atas HANYA konteks latar. Kalau pertanyaan saat " +
+    "ini berbeda topik dari riwayat, ABAIKAN topik lama dan jawab " +
+    "pertanyaan saat ini.";
 
   try {
     // Maks 3 percobaan: build hasil tiap percobaan divalidasi
@@ -1056,13 +1227,30 @@ serve(async (req: Request) => {
         // Build tanpa item = bukan build — jangan kirim kartu kosong.
         if (build.items.length === 0) build = null;
       }
+      // Grounding katalog: harga item ditimpa harga katalog asli dan
+      // nama karangan model disisihkan sebagai pelanggaran HARD —
+      // digabung ke umpan balik retry / pembuangan build di bawah,
+      // persis seperti kegagalan validateBuild.
+      let hallucinated: string[] = [];
+      if (build !== null) {
+        const grounded = enforceCatalogGrounding(build.items, allowed);
+        hallucinated = grounded.hallucinated;
+        build.items = grounded.items;
+        build.total = grounded.items.reduce((acc, i) => acc + i.price, 0);
+        if (build.items.length === 0) build = null;
+      }
       let replyText = String(data["reply"] ?? "").slice(0, 2000);
-      if (build !== null && build.items.length > 0) {
-        const { hard, soft } = validateBuild(
-          build.items,
-          budget,
-          effectiveMessage,
-        );
+      if (build !== null || hallucinated.length > 0) {
+        const { hard: validHard, soft } = build !== null
+          ? validateBuild(build.items, budget, effectiveMessage)
+          : { hard: [] as string[], soft: [] as string[] };
+        const hard = [
+          ...validHard,
+          ...hallucinated.map((n) =>
+            `produk "${n}" tidak ada di DAFTAR HARGA — jangan mengarang ` +
+            "produk di luar daftar"
+          ),
+        ];
         if (attempt < 2 && (hard.length > 0 || soft.length > 0)) {
           currentPrompt = prompt +
             "\nCATATAN PERBAIKAN: susunan sebelumnya DITOLAK sistem " +

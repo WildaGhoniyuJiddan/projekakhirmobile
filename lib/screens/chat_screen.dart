@@ -31,6 +31,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _bubbles.add(const _Bubble(
       role: 'assistant',
       text: AppStrings.chatWelcome,
+      excludeFromHistory: true,
     ));
   }
 
@@ -58,8 +59,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (text.isEmpty || _sending) return;
     FocusScope.of(context).unfocus();
     final history = _bubbles
-        .where((b) => b.text.isNotEmpty)
-        .map((b) => ChatMessage(role: b.role, text: b.text))
+        .where((b) => b.text.isNotEmpty && !b.excludeFromHistory)
+        .map((b) => ChatMessage(role: b.role, text: b.historyText))
         .toList();
     setState(() {
       _bubbles.add(_Bubble(role: 'user', text: text));
@@ -81,7 +82,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       setState(() {
         _bubbles.add(_Bubble(
             role: 'assistant',
-            text: '${AppStrings.chatError}: $e'));
+            text: '${AppStrings.chatError}: $e',
+            excludeFromHistory: true));
         _sending = false;
       });
     }
@@ -146,11 +148,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 }
 
 class _Bubble {
-  const _Bubble({required this.role, required this.text, this.build});
+  const _Bubble({
+    required this.role,
+    required this.text,
+    this.build,
+    this.excludeFromHistory = false,
+  });
 
   final String role;
   final String text;
   final BuildCardData? build;
+
+  /// Bubble non-percakapan (sambutan, pesan error) — tampil di layar
+  /// tapi tidak pernah dikirim sebagai history ke server.
+  final bool excludeFromHistory;
+
+  /// Teks untuk payload history: bubble ber-build menyertakan ringkasan
+  /// rakitan agar pertanyaan lanjutan ("ganti VGA-nya") tetap punya
+  /// konteks. Tampilan di layar tidak berubah.
+  String get historyText {
+    final b = build;
+    if (b == null || b.items.isEmpty) return text;
+    final parts = b.items
+        .map((i) => '${i.component}: ${i.name} (${formatRupiah(i.price)})')
+        .join('; ');
+    return '$text [Rakitan: $parts | Total: ${formatRupiah(b.total)}]';
+  }
 }
 
 class _ChatBubble extends StatelessWidget {
