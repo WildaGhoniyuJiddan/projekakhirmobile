@@ -67,7 +67,7 @@ def main() -> None:
             if is_placeholder_price(int(it["price"])):
                 dropped_retail_ph += 1
                 continue
-            items.append({"model": it["model"], "price": int(it["price"])})
+            items.append({"model": it["model"], "price": int(it["price"]), "src": "retail"})
         merged[cat] = items
         stats[cat] = {"retail": len(items), "pengisi": 0}
     if dropped_retail_ph:
@@ -79,7 +79,7 @@ def main() -> None:
         ("storage_canonical", "storage", ""),
     ):
         for label, price in retail_up.get(src, {}).items():
-            merged[cat].append({"model": f"{prefix}{label} (generik)", "price": int(price)})
+            merged[cat].append({"model": f"{prefix}{label} (generik)", "price": int(price), "src": "retail"})
             stats[cat]["retail"] += 1
 
     # --- 2. Pengisi: item katalog berjalan yang modelnya belum ada ---
@@ -153,7 +153,7 @@ def main() -> None:
                 dropped += 1
                 stats[cat]["dibuang"] += 1
                 continue
-            bucket.append({"model": nm, "price": price})
+            bucket.append({"model": nm, "price": price, "src": "market"})
             stats[cat]["pengisi"] += 1
     print(f"  gerbang kewajaran: {dropped} pengisi tak wajar dibuang")
 

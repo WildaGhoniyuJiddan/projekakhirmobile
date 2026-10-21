@@ -231,7 +231,7 @@ function priceLookupReply(message: string): string | null {
     .filter((t) => t.length >= 2 && !STOP.has(t));
   if (!tokens.some((t) => /\d/.test(t))) return null; // wajib ada token model
   const cat = catalog as unknown as Record<string, unknown>;
-  type Hit = { name: string; price: number; overlap: number };
+  type Hit = { name: string; price: number; overlap: number; retail: boolean };
   const hits: Hit[] = [];
   for (const key of ["gpu", "cpu", "motherboard", "ram", "storage", "laptop"]) {
     const items = cat[key];
@@ -246,15 +246,19 @@ function priceLookupReply(message: string): string | null {
       for (const t of tokens) if (mtok.has(t)) overlap++;
       // Minimal 2 token cocok DAN minimal 1 token berdigit (seri model).
       const digitHit = tokens.some((t) => /\d/.test(t) && mtok.has(t));
-      if (overlap >= 2 && digitHit) hits.push({ name: model, price, overlap });
+      if (overlap >= 2 && digitHit) {
+        hits.push({ name: model, price, overlap, retail: it["src"] === "retail" });
+      }
     }
   }
   if (hits.length === 0) return null;
   const maxOv = Math.max(...hits.map((h) => h.overlap));
   const top = hits
     .filter((h) => h.overlap === maxOv)
-    // Varian [Box] (harga utama retail) sebelum [Tray], lalu harga naik.
+    // Sumber retail (file Dan) dulu, lalu varian [Box] sebelum [Tray],
+    // lalu harga naik.
     .sort((a, b) =>
+      (Number(b.retail) - Number(a.retail)) ||
       (Number(/\[tray\]/i.test(a.name)) - Number(/\[tray\]/i.test(b.name))) ||
       (a.price - b.price)
     )
@@ -481,16 +485,42 @@ function consensusLookup(
   }
 
   const qsq = sq(text);
+  if (!qsq) return null;
   let best: ConsensusEntry | null = null;
-  for (const [key, entry] of Object.entries(catalogFor)) {
-    const ksq = sq(key);
+  let bestLen = Infinity;
+  for (const { ksq, entry } of consensusSqIndex(componentType, catalogFor)) {
     if (qsq.includes(ksq) || ksq.includes(qsq)) {
-      if (best === null || ksq.length < sq(best.name.toLowerCase()).length) {
+      if (ksq.length < bestLen) {
         best = entry;
+        bestLen = ksq.length;
       }
     }
   }
   return best;
+}
+
+// Indeks kunci konsensus ter-sq, dibangun sekali per tipe komponen.
+// Fallback substring consensusLookup dulu meng-sq ulang ribuan kunci
+// di SETIAP panggilan — dan panggilan itu terjadi ratusan kali per
+// request dari loop kandidat konteks. Sekarang kunci di-sq satu kali
+// per isolate dan dipakai ulang.
+const _consSqIndex = new Map<
+  string,
+  Array<{ ksq: string; entry: ConsensusEntry }>
+>();
+function consensusSqIndex(
+  componentType: string,
+  catalogFor: Record<string, ConsensusEntry>,
+): Array<{ ksq: string; entry: ConsensusEntry }> {
+  let idx = _consSqIndex.get(componentType);
+  if (!idx) {
+    idx = Object.entries(catalogFor).map(([key, entry]) => ({
+      ksq: sq(key),
+      entry,
+    }));
+    _consSqIndex.set(componentType, idx);
+  }
+  return idx;
 }
 
 // ---------------------------------------------------------------------------
@@ -538,7 +568,13 @@ function catalogContext(
   const junkFloor = budget !== null && budget >= 1_000_000
     ? Math.floor(budget * 0.02)
     : 0;
-  type Cand = { overlap: number; line: string; price: number; model: string };
+  type Cand = {
+    overlap: number;
+    line: string;
+    price: number;
+    model: string;
+    retail: boolean;
+  };
   const byCategory = new Map<string, Cand[]>();
   for (const key of KEYS) {
     const items = cat[key];
@@ -586,19 +622,25 @@ function catalogContext(
         const plat = [socket, ddr].filter(Boolean).join("·");
         if (plat) tag += ` [platform: ${plat}]`;
       }
-      // Tempel skor konsensus multi-sumber bila ada (grounding LLM).
-      // PENTING: += (bukan =) — assignment menimpa tag platform di atas.
-      if (key === "gpu" || key === "cpu") {
-        const con = consensusLookup(model, key);
-        if (con && con.consensus_score != null) {
-          tag += ` [skor konsensus ${
-            Math.round(con.consensus_score)
-          }/100, ${con.n_sources} sumber]`;
-        }
-      }
-      scored.push({ overlap, line: `${model}${tag}`, price, model });
+      // Skor konsensus TIDAK ditempel di loop kandidat ini (dulu:
+      // consensusLookup dipanggil untuk ratusan kandidat dan
+      // fallback-nya memindai ribuan entri per panggilan — beban CPU
+      // terbesar function, menembus batas resource worker). Tag
+      // ditempel belakangan hanya untuk item yang TERPILIH tampil,
+      // lihat blok sections di bawah.
+      scored.push({
+        overlap,
+        line: `${model}${tag}`,
+        price,
+        model,
+        retail: it["src"] === "retail",
+      });
     }
-    scored.sort((a, b) => (b.overlap - a.overlap) || (b.price - a.price));
+    scored.sort((a, b) =>
+      (b.overlap - a.overlap) ||
+      (Number(b.retail) - Number(a.retail)) ||
+      (b.price - a.price)
+    );
     byCategory.set(key, scored);
   }
 
@@ -726,7 +768,11 @@ function catalogContext(
     // (45/30/20/12/6%) supaya model bisa menyusun total 70-100% budget
     // dari kombinasi realistis. Top-5 termahal saja membuat tiap
     // komponen memakan seluruh budget sendiri-sendiri.
-    scored.sort((a, b) => (b.overlap - a.overlap) || (b.price - a.price));
+    scored.sort((a, b) =>
+      (b.overlap - a.overlap) ||
+      (Number(b.retail) - Number(a.retail)) ||
+      (b.price - a.price)
+    );
     const picked: typeof scored = [];
     const pickedLines = new Set<string>();
     const take = (p: (typeof scored)[number]) => {
@@ -753,7 +799,18 @@ function catalogContext(
     if (picked.length > 0) {
       sections.push(
         `[${key.toUpperCase()}]\n` +
-          picked.map((p) => `- ${p.line}: Rp${formatRupiah(p.price)}`)
+          picked.map((p) => {
+            let line = p.line;
+            if (key === "gpu" || key === "cpu") {
+              const con = consensusLookup(p.model, key);
+              if (con && con.consensus_score != null) {
+                line += ` [skor konsensus ${
+                  Math.round(con.consensus_score)
+                }/100, ${con.n_sources} sumber]`;
+              }
+            }
+            return `- ${line}: Rp${formatRupiah(p.price)}`;
+          })
             .join("\n"),
       );
     }
