@@ -1089,7 +1089,7 @@ async function geminiAttempt(
             // bukan kreatif — temperatur tinggi cuma menambah
             // karangan di luar katalog.
             temperature: 0.15,
-            maxOutputTokens: 1024,
+            maxOutputTokens: 2048,
             ...(useSchema
               ? {
                 responseMimeType: "application/json",
@@ -1405,6 +1405,18 @@ serve(async (req: Request) => {
         data = JSON.parse(cleaned) as Record<string, unknown>;
         if (typeof data !== "object" || data === null) throw new Error();
       } catch {
+        // JSON terpotong/rusak (token keluaran habis di tengah JSON —
+        // kasus nyata v26: build 10,5jt berhenti di ±30 token). Jangan
+        // buang teks mentah ke user: minta model mengulang dengan JSON
+        // lengkap & ringkas, seperti kegagalan validasi lain. Hanya
+        // percobaan terakhir yang jatuh ke teks mentah.
+        if (attempt < 2) {
+          currentPrompt = prompt +
+            "\nCATATAN PERBAIKAN: respons sebelumnya bukan JSON valid " +
+            "(kemungkinan terpotong). Keluarkan HANYA JSON lengkap " +
+            "sesuai format, dengan teks reply ringkas.";
+          continue;
+        }
         return jsonResponse({ reply: text.slice(0, 2000) });
       }
       let build: {
