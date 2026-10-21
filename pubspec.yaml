@@ -96,6 +96,8 @@ flutter:
     - assets/data/benchmark_scores.json
     - assets/data/consensus_scores.json
     - assets/data/new_price_reference.json
+    - assets/data/products_normalized.json
+    - assets/data/products_images_manifest.json
     - assets/3d/prepared/
   #   - images/a_dot_ham.jpeg
 

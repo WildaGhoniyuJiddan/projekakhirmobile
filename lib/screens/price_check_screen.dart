@@ -31,8 +31,13 @@ final historyRepositoryProvider = Provider<HistoryRepository>(
 );
 
 /// Layar utama Beranda: form cek harga + autocomplete (debounce 300ms).
+/// [initialQuery]/[initialMode] opsional: form terisi awal (dipakai
+/// etalase menu Cari). Null (default) = perilaku lama persis.
 class PriceCheckScreen extends ConsumerStatefulWidget {
-  const PriceCheckScreen({super.key});
+  const PriceCheckScreen({super.key, this.initialQuery, this.initialMode});
+
+  final String? initialQuery;
+  final String? initialMode;
 
   @override
   ConsumerState<PriceCheckScreen> createState() => _PriceCheckScreenState();
@@ -48,6 +53,15 @@ class _PriceCheckScreenState extends ConsumerState<PriceCheckScreen> {
   List<String> _suggestions = [];
   Timer? _debounce;
   ApiResult<AnalysisResult>? _state;
+
+  @override
+  void initState() {
+    super.initState();
+    final q = widget.initialQuery;
+    if (q != null && q.isNotEmpty) _query.text = q;
+    final m = widget.initialMode;
+    if (m != null && (m == 'pc' || m == 'laptop')) _mode = m;
+  }
 
   @override
   void dispose() {

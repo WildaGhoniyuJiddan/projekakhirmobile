@@ -33,3 +33,4 @@ assets/3d/*
 # Hasil optimizer GLB (tool/optimize_glb.mjs) — artefak build, bukan source.
 # File asli di assets/3d/ tidak pernah ditimpa.
 tool/output/
+product_images/

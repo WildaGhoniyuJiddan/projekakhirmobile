@@ -9,10 +9,12 @@ import 'package:worthbang/core/widgets/monex_widgets.dart';
 import 'package:worthbang/services/core/api_exception.dart';
 import 'package:worthbang/services/core/api_result.dart';
 import 'package:worthbang/services/data/local_catalog.dart';
+import 'package:worthbang/services/data/products_catalog.dart';
 import 'package:worthbang/services/features/personalization/personalization_engine.dart';
 import 'package:worthbang/utils/rupiah.dart';
 import 'package:worthbang/l10n/strings.dart';
 import 'package:worthbang/models/price_check_models.dart';
+import 'package:worthbang/screens/onboarding_screen.dart';
 import 'package:worthbang/screens/price_check_screen.dart';
 import 'package:worthbang/models/search_filter.dart';
 
@@ -27,10 +29,43 @@ class SearchFilterScreen extends ConsumerStatefulWidget {
 class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
   final _query = TextEditingController();
   final _maxPrice = TextEditingController();
+  final _forYouKey = GlobalKey<_ForYouSectionState>();
 
   String _mode = 'pc';
   ApiResult<List<PriceComparison>>? _state;
   SearchFilter _filter = const SearchFilter();
+
+  /// Gerbang onboarding personalisasi: ditawarkan maksimal sekali per
+  /// sesi aplikasi, saat menu Cari PERTAMA kali dibuka, dan hanya bila
+  /// user belum pernah mengisinya (keputusan Dan: bukan di Beranda).
+  static bool _onboardingPrompted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybePromptOnboarding();
+    });
+  }
+
+  Future<void> _maybePromptOnboarding() async {
+    if (_onboardingPrompted) return;
+    _onboardingPrompted = true;
+    try {
+      final engine =
+          PersonalizationEngine(await SharedPreferences.getInstance());
+      if (await engine.hasOnboarding()) return;
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const OnboardingScreen()),
+      );
+      if (!mounted) return;
+      // Profil berubah (atau dilewati) -> muat ulang etalase.
+      await _forYouKey.currentState?.reload();
+    } catch (_) {
+      // Gerbang onboarding gagal = diam saja, menu Cari tetap jalan.
+    }
+  }
 
   @override
   void dispose() {
@@ -143,7 +178,7 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
             ),
             if (state == null) ...[
               const SizedBox(height: MonexSpacing.sectionGap),
-              const _ForYouSection(),
+              _ForYouSection(key: _forYouKey),
             ],
             if (state is ApiLoading)
               const Padding(
@@ -286,19 +321,28 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
   }
 }
 
-/// Section 'Buat Kamu': etalase awal menu Cari — 20 produk teratas
-/// hasil rank() personalisasi lokal atas seluruh katalog bundel.
-/// Ketuk kartu = event viewDetail.
+/// Satu kartu etalase: produk ternormalisasi + alasan personalisasi.
+class _ShowcaseItem {
+  const _ShowcaseItem(this.product, this.reason);
+
+  final NormalizedProduct product;
+  final String? reason;
+}
+
+/// Section 'Buat Kamu': etalase awal menu Cari — grid produk
+/// ternormalisasi (ProductsCatalog) yang diurutkan mesin
+/// personalisasi lokal. Urutan = showcase() acak terbobot di kelompok
+/// skor atas; alasan dari rank(). Ketuk kartu = event viewDetail,
+/// lalu buka Cek Harga dengan nama produk terisi.
 class _ForYouSection extends StatefulWidget {
-  const _ForYouSection();
+  const _ForYouSection({super.key});
 
   @override
   State<_ForYouSection> createState() => _ForYouSectionState();
 }
 
 class _ForYouSectionState extends State<_ForYouSection> {
-  List<ScoredProduct>? _top;
-  Map<String, String> _categoryOf = const {};
+  List<_ShowcaseItem>? _top;
 
   @override
   void initState() {
@@ -306,51 +350,149 @@ class _ForYouSectionState extends State<_ForYouSection> {
     _load();
   }
 
+  /// Muat (ulang) etalase — dipanggil juga setelah onboarding selesai
+  /// agar urutan langsung memakai profil baru.
+  Future<void> reload() => _load();
+
   Future<void> _load() async {
+    final products = await ProductsCatalog.load();
+    if (products.isEmpty) {
+      if (mounted) setState(() => _top = const []);
+      return;
+    }
     final engine =
         PersonalizationEngine(await SharedPreferences.getInstance());
-    final items = await LocalCatalog.allItems();
-    final ranked = engine.rank(items);
-    final byCategory = await LocalCatalog.load();
-    final categoryOf = <String, String>{};
-    byCategory.forEach((category, list) {
-      for (final item in list) {
-        categoryOf.putIfAbsent(item.model, () => category);
-      }
-    });
-    // Urutan etalase = acak terbobot di kelompok skor atas (mesin
-    // showcase); skor & alasan tetap diambil dari rank().
-    final byModel = {for (final s in ranked) s.item.model: s};
+    // Mesin personalisasi bekerja atas CatalogItem: adaptasikan
+    // produk ternormalisasi, lalu petakan balik via nama.
+    final adapters = [
+      for (final p in products) CatalogItem(model: p.name, price: p.price),
+    ];
+    final ranked = engine.rank(adapters);
+    final reasonOf = {for (final s in ranked) s.item.model: s.reason};
+    final productOf = {for (final p in products) p.name: p};
     final order = engine.showcase(
-      items,
+      adapters,
       limit: 20,
       rng: Random(DateTime.now().millisecondsSinceEpoch),
     );
-    final top = order
-        .map((it) => byModel[it.model])
-        .whereType<ScoredProduct>()
-        .toList();
+    final top = [
+      for (final it in order)
+        if (productOf[it.model] != null)
+          _ShowcaseItem(productOf[it.model]!, reasonOf[it.model]),
+    ];
     if (!mounted) return;
-    setState(() {
-      _top = top;
-      _categoryOf = categoryOf;
-    });
+    setState(() => _top = top);
   }
 
-  Future<void> _recordView(ScoredProduct product) async {
+  Future<void> _openProduct(_ShowcaseItem entry) async {
+    final product = entry.product;
     try {
       final engine =
           PersonalizationEngine(await SharedPreferences.getInstance());
       await engine.record(UserEvent(
         type: UserEventType.viewDetail,
-        category: _categoryOf[product.item.model],
-        productName: product.item.model,
-        price: product.item.price,
+        category: product.category,
+        productName: product.name,
+        price: product.price,
         at: DateTime.now(),
       ));
     } catch (_) {
       // Telemetri personalisasi gagal = diam saja.
     }
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PriceCheckScreen(
+          initialQuery: product.name,
+          initialMode: product.category == 'laptop' ? 'laptop' : 'pc',
+        ),
+      ),
+    );
+  }
+
+  IconData _iconFor(String category) => switch (category) {
+        'cpu' => Icons.memory,
+        'gpu' => Icons.videogame_asset_outlined,
+        'motherboard' => Icons.dashboard_outlined,
+        'ram' => Icons.sd_card_outlined,
+        'storage' => Icons.storage,
+        'laptop' => Icons.laptop,
+        'pc' => Icons.desktop_windows_outlined,
+        _ => Icons.widgets_outlined,
+      };
+
+  Widget _imageFor(NormalizedProduct product) {
+    final placeholder = ColoredBox(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Center(
+        child: Icon(
+          _iconFor(product.category),
+          size: 40,
+          color: Theme.of(context).textTheme.bodySmall?.color,
+        ),
+      ),
+    );
+    final url = product.imageUrl;
+    if (url == null) return placeholder;
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (_, _, _) => placeholder,
+      loadingBuilder: (_, child, progress) =>
+          progress == null ? child : placeholder,
+    );
+  }
+
+  Widget _card(_ShowcaseItem entry) {
+    final theme = Theme.of(context);
+    final product = entry.product;
+    return MonexSurfaceCard(
+      onTap: () => _openProduct(entry),
+      padding: const EdgeInsets.all(10),
+      radius: MonexSpacing.radiusMd,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(MonexSpacing.radiusSm),
+              child: _imageFor(product),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            product.name,
+            style: theme.textTheme.titleSmall,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            formatRupiah(product.price),
+            style: theme.textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          if (entry.reason != null && entry.reason!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: MonexColors.limeMuted,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                entry.reason!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   @override
@@ -365,39 +507,18 @@ class _ForYouSectionState extends State<_ForYouSection> {
         const SizedBox(height: 2),
         Text(AppStrings.showcaseSubtitle, style: theme.textTheme.bodySmall),
         const SizedBox(height: 12),
-        for (final product in top)
-          Padding(
-            padding: const EdgeInsets.only(bottom: MonexSpacing.gridGap),
-            child: MonexSurfaceCard(
-              onTap: () => _recordView(product),
-              padding:
-                  const EdgeInsets.all(MonexSpacing.cardPaddingCompact),
-              radius: MonexSpacing.radiusMd,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  MonexTransactionTile(
-                    title: product.item.model,
-                    titleStyle: theme.textTheme.titleSmall,
-                    subtitle: _categoryOf[product.item.model] ?? '',
-                    padding: EdgeInsets.zero,
-                    trailing: Text(
-                      formatRupiah(product.item.price),
-                      style: theme.textTheme.titleSmall,
-                    ),
-                  ),
-                  if (product.reason != null &&
-                      product.reason!.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Chip(
-                      label: Text(product.reason!),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ],
-                ],
-              ),
-            ),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: top.length,
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 180,
+            childAspectRatio: 0.72,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
           ),
+          itemBuilder: (_, i) => _card(top[i]),
+        ),
       ],
     );
   }

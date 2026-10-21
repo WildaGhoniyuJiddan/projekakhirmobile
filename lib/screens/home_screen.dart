@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
@@ -9,31 +8,15 @@ import 'package:worthbang/screens/builder_screen.dart';
 import 'package:worthbang/screens/dream_build_screen.dart';
 import 'package:worthbang/screens/chat_screen.dart';
 import 'package:worthbang/screens/game_screen.dart';
-import 'package:worthbang/screens/onboarding_screen.dart';
 import 'package:worthbang/screens/price_check_screen.dart';
 import 'package:worthbang/screens/search_screen.dart';
 import 'package:worthbang/screens/stores_screen.dart';
 import 'package:worthbang/screens/tools_screen.dart';
 import 'package:worthbang/screens/wishlist_screen.dart';
-import 'package:worthbang/services/features/personalization/personalization_engine.dart';
 import 'package:worthbang/widgets/app_logo.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
-
-  /// Gerbang onboarding personalisasi ditawarkan maksimal sekali per
-  /// sesi aplikasi, dan hanya bila user belum pernah mengisinya.
-  static bool _onboardingPrompted = false;
-
-  static Future<void> _promptOnboarding(BuildContext context) async {
-    final engine =
-        PersonalizationEngine(await SharedPreferences.getInstance());
-    if (await engine.hasOnboarding()) return;
-    if (!context.mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const OnboardingScreen()),
-    );
-  }
 
   static final _menus = <_HomeMenuItem>[
     _HomeMenuItem(
@@ -95,13 +78,6 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    if (!_onboardingPrompted) {
-      _onboardingPrompted = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _promptOnboarding(context);
-      });
-    }
 
     return Scaffold(
       appBar: AppBar(
