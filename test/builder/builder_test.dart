@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sensors_plus/sensors_plus.dart';
+import 'package:worthbang/services/local_catalog.dart';
 import 'package:worthbang/services/builder_api.dart';
 import 'package:worthbang/models/builder_models.dart';
 import 'package:worthbang/services/shake_detector.dart';
@@ -29,6 +30,90 @@ void main() {
   });
 
   group('BuilderApi', () {
+    test('extractPsuWattage parses wattages accurately', () {
+      expect(BuilderApi.extractPsuWattage('PSU 350W Bawaan Casing'), 350);
+      expect(BuilderApi.extractPsuWattage('PSU 650W 80+ Bronze'), 650);
+      expect(BuilderApi.extractPsuWattage('PSU 750W 80+ Gold'), 750);
+      expect(BuilderApi.extractPsuWattage('PSU 850W 80+ Gold Fully Modular'), 850);
+      expect(BuilderApi.extractPsuWattage('PSU 1000W 80+ Platinum ATX 3.0'), 1000);
+      expect(BuilderApi.extractPsuWattage('PSU 1600W 80+ Titanium ATX 3.0'), 1600);
+      expect(BuilderApi.extractPsuWattage('PSU Standar Polos'), 500);
+    });
+
+    test('calculateMinPsuWattage matches GPU, CPU, and budget tier requirements', () {
+      // GPU flagship
+      expect(
+        BuilderApi.calculateMinPsuWattage(
+          gpu: const CatalogItem(model: 'MSI GeForce RTX 5090 32GB', price: 95000000),
+          totalBudget: 100000000,
+        ),
+        greaterThanOrEqualTo(1000),
+      );
+      expect(
+        BuilderApi.calculateMinPsuWattage(
+          gpu: const CatalogItem(model: 'Asus ROG Strix RTX 4090 24GB', price: 38000000),
+          totalBudget: 50000000,
+        ),
+        greaterThanOrEqualTo(1000),
+      );
+
+      // GPU high-end
+      expect(
+        BuilderApi.calculateMinPsuWattage(
+          gpu: const CatalogItem(model: 'MSI GeForce RTX 4080 Super', price: 21000000),
+          totalBudget: 35000000,
+        ),
+        greaterThanOrEqualTo(850),
+      );
+
+      // CPU HEDT / Threadripper
+      expect(
+        BuilderApi.calculateMinPsuWattage(
+          cpu: const CatalogItem(model: 'AMD Ryzen Threadripper PRO 7995WX', price: 180000000),
+          totalBudget: 100000000,
+        ),
+        greaterThanOrEqualTo(1000),
+      );
+
+      // Budget 100 juta selalu memiliki floor min 1000W
+      expect(
+        BuilderApi.calculateMinPsuWattage(totalBudget: 100000000),
+        greaterThanOrEqualTo(1000),
+      );
+
+      // Budget 50 juta memiliki floor min 850W
+      expect(
+        BuilderApi.calculateMinPsuWattage(totalBudget: 50000000),
+        greaterThanOrEqualTo(850),
+      );
+    });
+
+    test('budget 100 juta memilih PSU realistis (>= 1000W, tidak pernah 650W)', () async {
+      final api = BuilderApi(random: Random(12345));
+      for (final useCase in ['gaming', 'editing', 'office']) {
+        for (var i = 0; i < 10; i++) {
+          final build = await api.randomBuild(
+            budget: 100000000,
+            useCase: useCase,
+          );
+          expect(build.total, lessThanOrEqualTo(100000000));
+          expect(build.parts, hasLength(5));
+
+          final psuWatt = BuilderApi.extractPsuWattage(build.psu.name);
+          expect(
+            psuWatt,
+            greaterThanOrEqualTo(1000),
+            reason: 'PSU ${build.psu.name} terlalu kecil untuk build Rp 100.000.000 ($useCase run $i)',
+          );
+          expect(
+            psuWatt > 650,
+            isTrue,
+            reason: 'PSU tidak boleh 650W ke bawah pada budget 100 juta',
+          );
+        }
+      }
+    });
+
     test(
       'randomBuild varies on each generation and stays within budget',
       () async {
