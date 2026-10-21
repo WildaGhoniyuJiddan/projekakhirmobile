@@ -1,0 +1,436 @@
+{
+ "psu": [
+  {
+   "model": "Power Supply / PSU Gaming Imperion B500 500W",
+   "price": 145000,
+   "src": "market"
+  },
+  {
+   "model": "PSU 500 watt 3 Power Up NERO 225 with FAN 12cm Garansi 1 Tahun Komputer",
+   "price": 149710,
+   "src": "market"
+  },
+  {
+   "model": "VARRO 500W",
+   "price": 165000,
+   "src": "market"
+  },
+  {
+   "model": "SPC PSU 450W ATX Power Supply PC – SATA & Molex Jogja",
+   "price": 180000,
+   "src": "market"
+  },
+  {
+   "model": "PSU Aerocool United Power 500w 80+ (bekas)",
+   "price": 200000,
+   "src": "market"
+  },
+  {
+   "model": "PSU VARRO EZMAX 500W RGB 80+",
+   "price": 207000,
+   "src": "market"
+  },
+  {
+   "model": "PCCOOLER Power Supply HW500-NP 500W",
+   "price": 225000,
+   "src": "market"
+  },
+  {
+   "model": "Power Supply Imperion 550w LED RGB 6 PIN Power Supply Gaming PSU",
+   "price": 232500,
+   "src": "market"
+  },
+  {
+   "model": "Psu FSP Hexa+ II 500watt (bekas)",
+   "price": 275000,
+   "src": "market"
+  },
+  {
+   "model": "PSU Corsair 450W VS450",
+   "price": 282500,
+   "src": "market"
+  },
+  {
+   "model": "PSU Seasonic 430W 80+ Bronze",
+   "price": 312500,
+   "src": "market"
+  },
+  {
+   "model": "Psu AeroCool Lux 550W 80+ RGB (bekas)",
+   "price": 350000,
+   "src": "market"
+  },
+  {
+   "model": "psu pure corsair cx 500watt",
+   "price": 350000,
+   "src": "market"
+  },
+  {
+   "model": "PSU Corsair VS550 550w 80+ 2x8 pin vga",
+   "price": 350000,
+   "src": "market"
+  },
+  {
+   "model": "PSU CORSAIR CV450 450W 80+ BRONZE NON MODULAR (bekas)",
+   "price": 375000,
+   "src": "market"
+  },
+  {
+   "model": "Corsair CX500 PSU 500W",
+   "price": 400000,
+   "src": "market"
+  },
+  {
+   "model": "PSU CORSAIR HX620W 80 PLUS",
+   "price": 417500,
+   "src": "market"
+  },
+  {
+   "model": "psu pure seasonic 500watt",
+   "price": 425000,
+   "src": "market"
+  },
+  {
+   "model": "psu seasonic 520w",
+   "price": 425000,
+   "src": "market"
+  },
+  {
+   "model": "PSU Seasonic SS-620GM 80+ Bronze",
+   "price": 444500,
+   "src": "market"
+  },
+  {
+   "model": "PSU VENOMRX NIRVANA 550W 85+ BRONZE POWER SUPPLY PC ATX",
+   "price": 450000,
+   "src": "market"
+  },
+  {
+   "model": "psu pure seasonic 550watt",
+   "price": 450000,
+   "src": "market"
+  },
+  {
+   "model": "PSU SEASONIC SS-850AM 80 PLUS BRONZE",
+   "price": 497500,
+   "src": "market"
+  },
+  {
+   "model": "PSU PARADOX GAMING LEGEND 750 WATT",
+   "price": 560000,
+   "src": "market"
+  },
+  {
+   "model": "PSU Corsair VS 550W 80+",
+   "price": 617500,
+   "src": "market"
+  },
+  {
+   "model": "psu pure seasonic 650watt 80+",
+   "price": 625000,
+   "src": "market"
+  },
+  {
+   "model": "PSU FRACTAL ANODE BRONZE 750W 80+ BRONZE SEMI MODULAR (bekas)",
+   "price": 650000,
+   "src": "market"
+  },
+  {
+   "model": "PSU Aerocool LUX 750W 80 Plus Bronze",
+   "price": 687000,
+   "src": "market"
+  },
+  {
+   "model": "PSU FSP HV PRO 85+ BRONZE 650W",
+   "price": 689500,
+   "src": "market"
+  },
+  {
+   "model": "DIGITAL ALLIANCE PBZ750RGB (750W) 80+ BRONZE MODULAR CABLE RGB BLACK",
+   "price": 715000,
+   "src": "market"
+  },
+  {
+   "model": "PSU Aerocool LUX 650W - 650 Watt 80 Plus Bronze / 80+ Bronze",
+   "price": 734000,
+   "src": "market"
+  },
+  {
+   "model": "Psu Corsair RM750X 750Watt Sec",
+   "price": 750000,
+   "src": "market"
+  },
+  {
+   "model": "Deepcool PF750X 750W 80+ Bronze ATX 2.4 Power Supply",
+   "price": 754000,
+   "src": "market"
+  },
+  {
+   "model": "Cooler Master MWE 750 V3 - 750W 80+ BRONZE",
+   "price": 800000,
+   "src": "market"
+  },
+  {
+   "model": "SEGOTEP BN750W 750 Watt 80 PLUS BRONZE PSU - PCIE 5.0 12VHPWR !!!",
+   "price": 801500,
+   "src": "market"
+  },
+  {
+   "model": "PSU GIGABYTE P650SS 650W 80+ Silver 230V",
+   "price": 829000,
+   "src": "market"
+  },
+  {
+   "model": "PSU 550W Corsair CX550",
+   "price": 874000,
+   "src": "market"
+  },
+  {
+   "model": "MSI MAG A650BN 650Watt PSU/ Power Supply 650W 80+ Bronze",
+   "price": 899000,
+   "src": "market"
+  },
+  {
+   "model": "COOLER MASTER PSU POWER SUPPLY MWE GOLD 650 V3 650W (80+ GOLD)",
+   "price": 905000,
+   "src": "market"
+  },
+  {
+   "model": "Corsair CV Series 750W - 80 Plus Bronze / PSU 750W",
+   "price": 919500,
+   "src": "market"
+  },
+  {
+   "model": "PSU Corsair CX Series CX650 650W 80 Plus Bronze ATX Power Supply",
+   "price": 950000,
+   "src": "market"
+  },
+  {
+   "model": "PSU Corsair CX Series CX750 750W 80 Plus Bronze ATX Power Supply",
+   "price": 1042500,
+   "src": "market"
+  },
+  {
+   "model": "psu pure seasonic prime 750watt 80+gold full modular",
+   "price": 1109500,
+   "src": "market"
+  },
+  {
+   "model": "PSU Corsair RM650e 650W 80+ Gold Fully Modular Low-Noise ATX 3.1 & PCIe 5.1",
+   "price": 1616500,
+   "src": "market"
+  },
+  {
+   "model": "PSU SEASONIC CORE V2 GX650",
+   "price": 1624500,
+   "src": "market"
+  },
+  {
+   "model": "Seasonic Core V2 GX-750 ATX 3.1 PCIe 5.1 80+ GOLD Fully Modular",
+   "price": 1729000,
+   "src": "market"
+  },
+  {
+   "model": "Corsair RMe Series RM750e Fully Modular Low-Noise ATX 3.1 PCIe 5.1 Power Supply",
+   "price": 1994000,
+   "src": "market"
+  },
+  {
+   "model": "PSU Corsair RM1000x RMx Series Cybenetics Platinum Fully Modular ATX 3.1 PCIe 5.1",
+   "price": 3659000,
+   "src": "market"
+  }
+ ],
+ "case": [
+  {
+   "model": "Casing Venomrx ATX 1x fan (bekas)",
+   "price": 150000,
+   "src": "market"
+  },
+  {
+   "model": "Gamemax Aero Mini PC Case Casing",
+   "price": 237500,
+   "src": "market"
+  },
+  {
+   "model": "CASING INFINITY NOIR FREE 3 FAN",
+   "price": 322000,
+   "src": "market"
+  },
+  {
+   "model": "Casing Infinity NEBULA V6 Tempered Glass ATX BLACK",
+   "price": 365000,
+   "src": "market"
+  },
+  {
+   "model": "Casing Digital Alliance ELITE PRIME Black",
+   "price": 370000,
+   "src": "market"
+  },
+  {
+   "model": "Montech X2 White ATX Casing PC dengan 3x Rainbow Fan Tempered Glass & Desain True Classic",
+   "price": 475000,
+   "src": "market"
+  },
+  {
+   "model": "GAMEN GCS100 Transparant Gaming Pc Computer Case Tempered Glass Up to 3 Fan (HANYA CASING CPU",
+   "price": 504500,
+   "src": "market"
+  },
+  {
+   "model": "Tecware Trinity M2 Matx TG Case w/ 3 x ARGB Fans",
+   "price": 510000,
+   "src": "market"
+  },
+  {
+   "model": "Fusion 3 Matx Sff Mesh Case w/ 3 Fans (Black)",
+   "price": 569000,
+   "src": "market"
+  },
+  {
+   "model": "Casing VenomRX DAEMON S9 BTF BLACK",
+   "price": 595000,
+   "src": "market"
+  },
+  {
+   "model": "Casing DeepCool Matrexx 40 3FS",
+   "price": 635000,
+   "src": "market"
+  },
+  {
+   "model": "Timber M TG MATX Case w/ 4 x 120mm Fans",
+   "price": 640500,
+   "src": "market"
+  },
+  {
+   "model": "Montech X5M",
+   "price": 702000,
+   "src": "market"
+  },
+  {
+   "model": "MONTECH X3 GLASS",
+   "price": 734500,
+   "src": "market"
+  },
+  {
+   "model": "Casing MONTECH X3 MESH",
+   "price": 740000,
+   "src": "market"
+  },
+  {
+   "model": "Montech X3 Mesh Rgb Cpu Case",
+   "price": 744000,
+   "src": "market"
+  },
+  {
+   "model": "MONTECH X3 MESH WHITE ATX TEMPERED GLASS PC CASE CASING GAMING CHASSIS",
+   "price": 779880,
+   "src": "market"
+  },
+  {
+   "model": "Deepcool CG330 3F Include 3 Fan PC",
+   "price": 830500,
+   "src": "market"
+  },
+  {
+   "model": "MONTECH X5",
+   "price": 834500,
+   "src": "market"
+  },
+  {
+   "model": "Deepcool CH170 PLUS M-ATX PC Case",
+   "price": 854000,
+   "src": "market"
+  },
+  {
+   "model": "DEEPCOOL MATREXX 55 v3",
+   "price": 874000,
+   "src": "market"
+  },
+  {
+   "model": "DeepCool CH170 PLUS Tempered Glass Mesh Vertical Mini-ITX / M-ATX Case",
+   "price": 874000,
+   "src": "market"
+  },
+  {
+   "model": "LIAN LI LANCOOL 205 BLACK",
+   "price": 971000,
+   "src": "market"
+  },
+  {
+   "model": "LIAN LI LANCOOL 205M MESH",
+   "price": 1010000,
+   "src": "market"
+  },
+  {
+   "model": "DEEPCOOL CH260 WOOD",
+   "price": 1022000,
+   "src": "market"
+  },
+  {
+   "model": "Deepcool MATREXX 50 Mesh 4FS Tempered Glass E ATX Gaming Case",
+   "price": 1174000,
+   "src": "market"
+  },
+  {
+   "model": "LIAN LI LANCOOL 215 BLACK",
+   "price": 1239000,
+   "src": "market"
+  },
+  {
+   "model": "Casing Lianli Lian Li LANCOOL O11 O-11 Vision-M O11VMX White - PC Komputer Gaming Mid Tower",
+   "price": 1321400,
+   "src": "market"
+  },
+  {
+   "model": "Deepcool Matrexx 50 Add Rgb 3f Tempered Glass Gaming Case",
+   "price": 1337000,
+   "src": "market"
+  },
+  {
+   "model": "LIAN LI LANCOOL 205 Mesh",
+   "price": 1390000,
+   "src": "market"
+  },
+  {
+   "model": "Lian Li Lancool 207",
+   "price": 1446500,
+   "src": "market"
+  },
+  {
+   "model": "NZXT H5 Flow",
+   "price": 1484000,
+   "src": "market"
+  },
+  {
+   "model": "LIAN LI LANCOOL II MESH RGB",
+   "price": 1550500,
+   "src": "market"
+  },
+  {
+   "model": "NZXT H5 FLOW RGB",
+   "price": 1804500,
+   "src": "market"
+  },
+  {
+   "model": "LIAN LI LANCOOL 207 WHITE - 4.0mm Tempered Glass",
+   "price": 1995000,
+   "src": "market"
+  },
+  {
+   "model": "Lian Li Lancool 217",
+   "price": 2067000,
+   "src": "market"
+  },
+  {
+   "model": "LIAN LI LANCOOL 217 INF",
+   "price": 2073000,
+   "src": "market"
+  },
+  {
+   "model": "LIAN LI LANCOOL III RGB",
+   "price": 2474000,
+   "src": "market"
+  }
+ ]
+}

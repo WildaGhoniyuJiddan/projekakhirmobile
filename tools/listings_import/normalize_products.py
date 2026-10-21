@@ -53,7 +53,8 @@ CURRENT_PATH = REPO / "assets/data/retail_catalog.json"
 UPLOAD_PATH = Path.home() / "workspace/user/files/retail_catalog.json"
 OUT_PATH = REPO / "assets/data/products_normalized.json"
 MANIFEST_PATH = REPO / "assets/data/products_images_manifest.json"
-CAT_ORDER = ["gpu", "cpu", "motherboard", "ram", "storage", "pc", "laptop"]
+CAT_ORDER = ["gpu", "cpu", "motherboard", "ram", "storage", "pc", "laptop",
+             "psu", "case"]
 
 # ---------------------------------------------------------------------------
 # Peta merek: token lowercase -> ejaan kanonik
@@ -457,6 +458,11 @@ def _head_tokens(raw: str) -> list[str]:
 
 
 def reclassify(raw: str, source_cat: str) -> tuple[str | None, str]:
+    # Kategori baru psu/case: sumbernya sudah bersih & mesin taksonomi di
+    # bawah justru mengenal psu/casing sebagai "di luar taksonomi" (DROP)
+    # — jangan disentuh sama sekali, pertahankan kategori sumber.
+    if source_cat in ("psu", "case"):
+        return source_cat, "kategori psu/case: tetap"
     low = strip_segments(raw.lower())
     tok = _head_tokens(raw)
     head3 = set(tok[:3])

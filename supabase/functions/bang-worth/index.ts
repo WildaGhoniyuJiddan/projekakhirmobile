@@ -72,7 +72,7 @@ const BANG_WORTH_SYSTEM =
   "(mis. 'semalem', 'kemarin kita bahas', 'seperti biasa'). Kamu hanya tahu " +
   "isi chat ini.\n" +
   "- Untuk permintaan RAKITAN PC, jawaban intimu WAJIB rincian per part " +
-  "(CPU, Motherboard, RAM, SSD, GPU) lewat build — JANGAN menggantinya " +
+  "(CPU, Motherboard, RAM, SSD, GPU, PSU, Casing) lewat build — JANGAN menggantinya " +
   "dengan laptop atau PC jadi. Produk jadi hanya boleh disebut maksimal " +
   "satu baris sebagai alternatif tambahan, tidak pernah sebagai jawaban utama.";
 
@@ -244,7 +244,7 @@ function priceLookupReply(message: string): string | null {
   const cat = catalog as unknown as Record<string, unknown>;
   type Hit = { name: string; price: number; overlap: number; retail: boolean };
   const hits: Hit[] = [];
-  for (const key of ["gpu", "cpu", "motherboard", "ram", "storage", "laptop"]) {
+  for (const key of ["gpu", "cpu", "motherboard", "ram", "storage", "laptop", "psu", "case"]) {
     const items = cat[key];
     if (!Array.isArray(items)) continue;
     for (const it of items as Array<Record<string, unknown>>) {
@@ -427,6 +427,20 @@ function validateBuild(
         "GPU dan sesuaikan komponen lain",
     );
   }
+  // Rakitan substansial (>= 3 komponen inti) tanpa PSU / casing =
+  // belum bisa menyala / belum utuh. SOFT (bukan HARD): model diminta
+  // melengkapi lewat retry; build tidak dibuang di percobaan terakhir.
+  const coreCount = items.filter((i) =>
+    /cpu|gpu|motherboard|ram|ssd/i.test(i.component)
+  ).length;
+  if (coreCount >= 3) {
+    if (!items.some((i) => /psu|power supply/i.test(i.component))) {
+      soft.push("rakitan belum termasuk PSU");
+    }
+    if (!items.some((i) => /casing|case/i.test(i.component))) {
+      soft.push("rakitan belum termasuk casing");
+    }
+  }
   return { hard, soft };
 }
 
@@ -596,8 +610,8 @@ function catalogContext(
   componentsOnly = false,
 ): { context: string; allowed: Map<string, number> } {
   const KEYS = componentsOnly
-    ? ["cpu", "motherboard", "gpu", "ram", "storage"]
-    : ["cpu", "motherboard", "gpu", "ram", "storage", "laptop", "pc"];
+    ? ["cpu", "motherboard", "gpu", "ram", "storage", "psu", "case"]
+    : ["cpu", "motherboard", "gpu", "ram", "storage", "laptop", "pc", "psu", "case"];
   // Kata generik dibuang dari token relevansi: "gaming"/"laptop" cocok
   // ke ratusan nama produk dan mengangkat item di luar budget ke
   // konteks (kasus ROG Strix 36jt untuk budget 12jt).
@@ -689,6 +703,15 @@ function catalogContext(
       ) {
         if (/\b(128gb|250gb|256gb)\b/i.test(model)) continue;
         if (price > 2_150_000) continue;
+      }
+      // (g) PSU untuk rakitan budget >= 5,5jt: watt wajib terparse
+      // dari nama dan >= 500W — PSU watt kecil / tak jelas tidak
+      // boleh menyusun rakitan kelas ini. Di bawah 5,5jt longgar
+      // seperti kategori lain. Bekas PSU/casing DIBIARKAN (bukan
+      // bagian larangan bekas RAM/storage/motherboard di (c)).
+      if (key === "psu" && budget !== null && budget >= 5_500_000) {
+        const w = model.match(/(\d{3,4})\s*w(?:att)?\b/i);
+        if (!w || parseInt(w[1], 10) < 500) continue;
       }
       const normName = sq(model);
       if (!allowed.has(normName)) allowed.set(normName, price);
@@ -868,8 +891,8 @@ function catalogContext(
     {
     // Pilihan per kategori: ambil dulu yang disebut user (overlap
     // tertinggi, maks 2), lalu isi sisa slot dengan strategi per
-    // peran komponen. Komponen pendukung (RAM/motherboard/storage)
-    // spek minimalnya sudah ditegakkan saringan kandidat, jadi di
+    // peran komponen. Komponen pendukung (RAM/motherboard/storage/
+    // PSU/casing) spek minimalnya sudah ditegakkan saringan kandidat, jadi di
     // sini dipilih yang paling VALUE (dual channel / NVMe dulu, lalu
     // termurah) supaya sisa budget maksimal untuk CPU & GPU. CPU &
     // GPU memakai tangga alokasi budget dan di tiap anak tangga
@@ -887,8 +910,16 @@ function catalogContext(
       picked.push(p);
     };
     for (const p of scored.filter((s) => s.overlap > 0).slice(0, 2)) take(p);
-    if (key === "ram" || key === "motherboard" || key === "storage") {
+    if (key === "ram" || key === "motherboard" || key === "storage" ||
+      key === "psu" || key === "case") {
       const valueSorted = [...scored].sort((a, b) => {
+        if (key === "psu") {
+          // Bersertifikasi 80+ / kelas Bronze-Gold dulu (indikator
+          // kualitas unit), lalu harga naik.
+          const cert = (m: string) =>
+            /80\s*\+|bronze|gold|platinum|titanium/i.test(m) ? 0 : 1;
+          return (cert(a.model) - cert(b.model)) || (a.price - b.price);
+        }
         if (key === "ram") {
           const dual = (m: string) =>
             /\b2\s*x\s*8\s*gb\b/i.test(m) ? 0 : 1;
@@ -1351,7 +1382,7 @@ serve(async (req: Request) => {
     `Riwayat chat (sudah lewat, hanya konteks):\n${historyLines || "(kosong)"}\n` +
     `DAFTAR HARGA:\n${context}\n` +
     "ATURAN RAKITAN (kalau user minta rakitan):\n" +
-    "- Build WAJIB lengkap: CPU + Motherboard + RAM + SSD. GPU wajib untuk " +
+    "- Build WAJIB lengkap: CPU + Motherboard + RAM + SSD + PSU + Casing. GPU wajib untuk " +
     "gaming/editing/streaming; untuk kantor boleh tanpa GPU (tulis alasannya di note).\n" +
     "- Komponen harus KOMPATIBEL — cek tag [platform: ...] tiap item: socket " +
     "CPU WAJIB sama dengan socket Motherboard (AM4≠LGA1700!), dan generasi " +
@@ -1384,7 +1415,7 @@ serve(async (req: Request) => {
     "hanya disebut bila user secara eksplisit menyebut tray.\n" +
     "Balas HANYA dengan JSON valid (tanpa markdown fence): " +
     '{"reply": "<teks santai Bahasa Indonesia>", ' +
-    '"build": {"items": [{"component": "CPU|GPU|RAM|SSD|Motherboard", "name": "<nama dari daftar>", "price": <int>}], ' +
+    '"build": {"items": [{"component": "CPU|GPU|RAM|SSD|Motherboard|PSU|Casing", "name": "<nama dari daftar>", "price": <int>}], ' +
     '"total": <int>, "note": "<catatan singkat>"}}' +
     "\nPERTANYAAN USER SAAT INI (jawab pertanyaan ini):\n" + message +
     "\nRiwayat chat di atas HANYA konteks latar. Kalau pertanyaan saat " +

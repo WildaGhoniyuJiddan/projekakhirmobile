@@ -188,6 +188,8 @@ class _DreamBuildEditorState extends ConsumerState<DreamBuildEditor> {
       'GPU': 'gpu',
       'RAM': 'ram',
       'Storage': 'storage',
+      'PSU': 'psu',
+      'Casing': 'case',
     };
     final key = categoryOf[slot];
     final pool = key != null
