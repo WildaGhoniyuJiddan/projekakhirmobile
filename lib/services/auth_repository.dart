@@ -182,6 +182,12 @@ class AuthRepository {
     if (msg.toLowerCase().contains('already registered')) {
       return 'Email sudah terdaftar';
     }
+    if (msg.toLowerCase().contains('rate limit')) {
+      return 'Terlalu banyak percobaan email. Tunggu beberapa menit, lalu coba lagi.';
+    }
+    if (msg.toLowerCase().contains('is invalid')) {
+      return 'Format email tidak valid. Ketik manual emailnya (jangan copy-paste).';
+    }
     return msg;
   }
 }

@@ -76,9 +76,14 @@ LAPTOP_MARKERS = re.compile(
     r"predator\s*helios|victus|probook|elitebook|pavilion|tuf\s*(dash|gaming\s*f)|"
     r"nitro\s*\d|omen\s*\d|loq\s*\d|katana|aspire|inspiron|latitude|"
     r"\brog\s*(zephyrus|flow|strix\s*scar)|macbook|chromebook|"
-    r"\d{2}[.,]\d\s*(inch|inci)|layar\s*\d{2})",
+    r"\d{2}[.,]\d\s*(inch|inci)|layar\s*\d{2}|"
+    # v2: kode model & lini laptop yang lolos di v1
+    r"alienware|tuf\s*(fx|fa)\d|tuf\s*[af]\d{2}\b|msi\s*(thin|stealth|gf\d|sword|cyborg)|"
+    r"nitro\s*(anv|v\d)|dell\s*g\d{2}\b|omen\s*by\s*hp|baterai|battery\s*health|"
+    r"\b(i[3579]|ryzen\s*[3579])\s*-?\s*\d{4,5}(h|hs|hx|u)\b)",
     re.I,
 )
+GPU_PRODUCT = re.compile(r"(vga\s*card|graphics\s*card|kartu\s*grafis|\bvga\b.*\boc\b|oc\s*edition)", re.I)
 GROUPS = {
     "cpu": re.compile(r"(ryzen\s*[3579]|core\s*i[3579][-\s]?\d|athlon\s*\d|pentium\s*g\d)", re.I),
     "gpu": re.compile(r"(rtx\s*\d{4}|gtx\s*\d{3,4}|rx\s*\d{4}|arc\s*a\d{3})", re.I),
@@ -90,16 +95,26 @@ GROUPS = {
 
 
 def is_laptop(title: str) -> bool:
+    if GPU_PRODUCT.search(title):
+        return False
     return bool(LAPTOP_MARKERS.search(title))
 
 
 def is_full_pc(title: str, desc: str) -> bool:
     """PC rakitan utuh != 1 komponen. Penanda eksplisit (judul/desc) ATAU
-    >=3 grup komponen berspek angka dalam JUDUL saja (anti keyword-stuffing)."""
+    >=3 grup komponen berspek angka dalam JUDUL saja (anti keyword-stuffing)
+    ATAU judul miskin identitas (<=1 grup) tapi deskripsi memuat spek
+    lengkap >=3 grup (kasus judul generik 'PC GAMING')."""
     if FULLPC_MARKERS.search(f"{title} {desc[:300]}"):
         return True
-    hits = sum(1 for g in GROUPS.values() if g.search(title))
-    return hits >= 3
+    title_hits = sum(1 for g in GROUPS.values() if g.search(title))
+    if title_hits >= 3:
+        return True
+    if title_hits <= 1:
+        desc_hits = sum(1 for g in GROUPS.values() if g.search(desc[:600]))
+        if desc_hits >= 3:
+            return True
+    return False
 
 
 def clean_title(t: str) -> str:

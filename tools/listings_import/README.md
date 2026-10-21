@@ -8,7 +8,7 @@ Dataset listing pasar Indonesia hasil panen 20–21 Okt 2026 untuk
 | File | Keterangan |
 |---|---|
 | `listings_clean.csv` | 3.357 baris siap impor, kolom = skema `raw_listings` |
-| `laptop_units_clean.csv` | 626 baris laptop terparse (brand/cpu/gpu/ram/storage dari judul) |
+| `laptop_units_clean.csv` | 681 baris laptop terparse (brand/cpu/gpu/ram/storage dari judul) |
 | `queries.tsv` | 131 kueri panen (kueri + kategori awal) |
 | `compile_filters.py` | Mentah JSONL → CSV: dedupe, buang ex-mining/WTB/harga sampah |
 | `normalize_listings.py` | CSV → bersih: kondisi kanonik, pisah PC rakitan & laptop |
@@ -33,8 +33,15 @@ Dataset listing pasar Indonesia hasil panen 20–21 Okt 2026 untuk
   dipindah ke kategori `pc`; laptop yang ketemu via kueri komponen
   dipindah ke kategori `laptop` + diparse ke `laptop_units`
 
-Distribusi final: gpu 1.179, laptop 626, pc 538, cpu 353, storage 254,
-ram 208, motherboard 199. Kondisi: second 1.263, new 653, NULL 1.441.
+Distribusi final (v2, sudah terimpor & terverifikasi di Supabase):
+gpu 1.125, laptop 681, pc 604, cpu 300, storage 249, ram 207,
+motherboard 191 — total raw_listings 3.357, laptop_units 681.
+Kondisi: second 1.263, new 653, NULL 1.441.
+
+Catatan impor: koneksi Postgres langsung dari VM terblokir proxy, dan
+urllib putus-putus untuk respons besar — impor berjalan via PostgREST
+HTTPS (service_role) dengan transport curl (`import_via_rest.py`,
+`import_laptops3.py`, patch kategori `patch_v2.py`).
 
 ## Cara impor ulang
 
