@@ -31,7 +31,8 @@ class _BuilderScreenState extends ConsumerState<BuilderScreen> {
   ApiResult<RandomBuild>? _state;
   late final ShakeDetector _shake;
 
-  /// Part 3D yang sedang dipanggungkan (hasil mapping dari build terakhir).
+  /// Part 3D yang sedang dipanggungkan: satu set PC utuh hasil acakan
+  /// terakhir (murni hiasan, dipilih ulang tiap build).
   List<WglbVariant> _stageParts = const [];
 
   /// Katalog varian 3D; null = katalog belum termuat.
@@ -67,28 +68,15 @@ class _BuilderScreenState extends ConsumerState<BuilderScreen> {
     }
   }
 
-  /// Memetakan komponen hasil build ke varian 3D yang tersedia.
+  /// Memilih SATU set PC utuh secara acak untuk hiasan panggung 3D.
   ///
-  /// Varian dipilih acak per role, sehingga shake berikutnya mengubah
-  /// tampilan model tanpa mengubah data build.
-  List<WglbVariant> _pickStageParts(RandomBuild build) {
+  /// Model 3D murni dekorasi: set yang tampil berganti tiap acakan,
+  /// tapi part di dalamnya selalu satu build utuh yang saling pas —
+  /// TIDAK mewakili komponen hasil build acak di daftar bawahnya.
+  List<WglbVariant> _pickStageParts() {
     final catalog = _catalog;
     if (catalog == null || catalog.isEmpty) return const [];
-    final picks = <WglbVariant>[];
-    void take(String role) {
-      final variants = catalog.of(role);
-      if (variants.isEmpty) return;
-      picks.add(variants[_randomIndex(variants.length)]);
-    }
-
-    take('case');
-    take('mobo');
-    take('cpu');
-    take('ram');
-    take('gpu');
-    take('psu');
-    take('fan');
-    return picks;
+    return catalog.sets[_randomIndex(catalog.sets.length)].parts;
   }
 
   static int _randomIndex(int length) =>
@@ -106,7 +94,7 @@ class _BuilderScreenState extends ConsumerState<BuilderScreen> {
       if (!mounted) return;
       setState(() {
         _state = ApiSuccess(build);
-        _stageParts = _pickStageParts(build);
+        _stageParts = _pickStageParts();
       });
     } catch (e) {
       if (!mounted) return;

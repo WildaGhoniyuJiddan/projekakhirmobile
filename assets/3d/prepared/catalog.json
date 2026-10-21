@@ -1,211 +1,563 @@
 {
-  "version": 1,
-  "roles": {
-    "mobo": [
-      {
-        "id": "mobo_0",
-        "role": "mobo",
-        "set": "tron",
-        "name": "Gigabyte X870 AORUS ELITE WIFI7 AM5 DDR5 ATX",
-        "category": "Motherboard",
-        "file": "assets/3d/prepared/mobo_0.wglb",
-        "bytes": 152692,
-        "tris": 5819,
-        "verts": 3452,
-        "color": "#2E3440"
-      },
-      {
-        "id": "mobo_1",
-        "role": "mobo",
-        "set": "msi",
-        "name": "MSI MEG X870E GODLIKE AM5 DDR5 EATX",
-        "category": "Motherboard",
-        "file": "assets/3d/prepared/mobo_1.wglb",
-        "bytes": 184360,
-        "tris": 5974,
-        "verts": 4694,
-        "color": "#2E3440"
-      },
-      {
-        "id": "mobo_2",
-        "role": "mobo",
-        "set": "white",
-        "name": "Gigabyte X870 AORUS ELITE WIFI7 ICE",
-        "category": "Motherboard",
-        "file": "assets/3d/prepared/mobo_2.wglb",
-        "bytes": 153100,
-        "tris": 5823,
-        "verts": 3467,
-        "color": "#2E3440"
-      }
-    ],
-    "gpu": [
-      {
-        "id": "gpu_0",
-        "role": "gpu",
-        "set": "tron",
-        "name": "PowerColor Hellhound OC Radeon RX 9070 XT 16GB GDDR6",
-        "category": "GPU",
-        "file": "assets/3d/prepared/gpu_0.wglb",
-        "bytes": 155824,
-        "tris": 5758,
-        "verts": 3613,
-        "color": "#4B5563"
-      },
-      {
-        "id": "gpu_1",
-        "role": "gpu",
-        "set": "msi",
-        "name": "MSI GPU (SKU Newegg N82E16814137911, dari payload yang sama)",
-        "category": "GPU",
-        "file": "assets/3d/prepared/gpu_1.wglb",
-        "bytes": 157420,
-        "tris": 5899,
-        "verts": 3609,
-        "color": "#4B5563"
-      },
-      {
-        "id": "gpu_2",
-        "role": "gpu",
-        "set": "white",
-        "name": "ASUS ROG Astral GeForce RTX 5090 32GB GDDR7 WHITE OC Edition",
-        "category": "GPU",
-        "file": "assets/3d/prepared/gpu_2.wglb",
-        "bytes": 159724,
-        "tris": 5923,
-        "verts": 3693,
-        "color": "#4B5563"
-      }
-    ],
-    "ram": [
-      {
-        "id": "ram_0",
-        "role": "ram",
-        "set": "tron",
-        "name": "Corsair Vengeance RGB Black DDR5-6400 CL32 32GB (2x16GB)",
-        "category": "RAM",
-        "file": "assets/3d/prepared/ram_0.wglb",
-        "bytes": 43744,
-        "tris": 1500,
-        "verts": 1072,
-        "color": "#5C4033"
-      },
-      {
-        "id": "ram_1",
-        "role": "ram",
-        "set": "msi",
-        "name": "Corsair Vengeance RGB Black / Gray DDR5-6400 CL32 64GB (2x32GB)",
-        "category": "RAM",
-        "file": "assets/3d/prepared/ram_1.wglb",
-        "bytes": 43744,
-        "tris": 1500,
-        "verts": 1072,
-        "color": "#5C4033"
-      }
-    ],
-    "cpu": [
-      {
-        "id": "cpu_0",
-        "role": "cpu",
-        "set": "tron",
-        "name": "Thermalright Grand Vision Water ARGB Black [radiator]",
-        "category": "CPUCooler",
-        "file": "assets/3d/prepared/cpu_0.wglb",
-        "bytes": 83392,
-        "tris": 2988,
-        "verts": 1980,
-        "color": "#374151"
-      },
-      {
-        "id": "cpu_1",
-        "role": "cpu",
-        "set": "msi",
-        "name": "MSI MEG CORELIQUID E15 360",
-        "category": "CPUCooler",
-        "file": "assets/3d/prepared/cpu_1.wglb",
-        "bytes": 72496,
-        "tris": 2994,
-        "verts": 1523,
-        "color": "#374151"
-      }
-    ],
-    "psu": [
-      {
-        "id": "psu_0",
-        "role": "psu",
-        "set": "tron",
-        "name": "MSI MAG A850GL PCIE5 850W Fully Modular 80+ Gold Certified",
-        "category": "PSU",
-        "file": "assets/3d/prepared/psu_0.wglb",
-        "bytes": 63616,
-        "tris": 2572,
-        "verts": 1364,
-        "color": "#1F2937"
-      },
-      {
-        "id": "psu_1",
-        "role": "psu",
-        "set": "msi",
-        "name": "MSI MEG Ai-T PCIE5 Black / Gold 1600W Fully Modular 80+ Titanium Certified",
-        "category": "PSU",
-        "file": "assets/3d/prepared/psu_1.wglb",
-        "bytes": 54268,
-        "tris": 2197,
-        "verts": 1162,
-        "color": "#1F2937"
-      }
-    ],
-    "fan": [
-      {
-        "id": "fan_0",
-        "role": "fan",
-        "set": "tron",
-        "name": "darkFlash INF34 ARGB PWM 120mm Black Pack of 3",
-        "category": "CaseFan",
-        "file": "assets/3d/prepared/fan_0.wglb",
-        "bytes": 23632,
-        "tris": 900,
-        "verts": 534,
-        "color": "#3F3F46"
-      },
-      {
-        "id": "fan_1",
-        "role": "fan",
-        "set": "tron",
-        "name": "darkFlash INF34 ARGB PWM 120mm Black Reverse",
-        "category": "CaseFan",
-        "file": "assets/3d/prepared/fan_1.wglb",
-        "bytes": 23668,
-        "tris": 899,
-        "verts": 536,
-        "color": "#3F3F46"
-      }
-    ],
-    "case": [
-      {
-        "id": "case_0",
-        "role": "case",
-        "set": "tron",
-        "name": "Phanteks NV5 ATX Mid Tower Black Tempered Glass Side Panel",
-        "category": "PCCase",
-        "file": "assets/3d/prepared/case_0.wglb",
-        "bytes": 89752,
-        "tris": 3484,
-        "verts": 1997,
-        "color": "#202634"
-      },
-      {
-        "id": "case_1",
-        "role": "case",
-        "set": "msi",
-        "name": "MSI MEG MAESTRO 900R",
-        "category": "PCCase",
-        "file": "assets/3d/prepared/case_1.wglb",
-        "bytes": 243436,
-        "tris": 10449,
-        "verts": 4918,
-        "color": "#202634"
-      }
-    ]
-  }
+  "version": 2,
+  "sets": [
+    {
+      "id": "tron",
+      "name": "Tron PC",
+      "parts": [
+        {
+          "id": "tron_0",
+          "role": "cpu",
+          "name": "Thermalright Grand Vision Water ARGB Black [cpu_block]",
+          "category": "CPUCooler",
+          "file": "assets/3d/prepared/tron_0.wglb",
+          "bytes": 63868,
+          "tris": 2593,
+          "verts": 1364,
+          "color": "#374151"
+        },
+        {
+          "id": "tron_1",
+          "role": "cpu",
+          "name": "Thermalright Grand Vision Water ARGB Black [radiator]",
+          "category": "CPUCooler",
+          "file": "assets/3d/prepared/tron_1.wglb",
+          "bytes": 95536,
+          "tris": 3464,
+          "verts": 2248,
+          "color": "#374151"
+        },
+        {
+          "id": "tron_2",
+          "role": "fan",
+          "name": "darkFlash INF34 ARGB PWM 120mm Black Pack of 3",
+          "category": "CaseFan",
+          "file": "assets/3d/prepared/tron_2.wglb",
+          "bytes": 31264,
+          "tris": 1200,
+          "verts": 702,
+          "color": "#3F3F46"
+        },
+        {
+          "id": "tron_3",
+          "role": "fan",
+          "name": "darkFlash INF34 ARGB PWM 120mm Black Reverse",
+          "category": "CaseFan",
+          "file": "assets/3d/prepared/tron_3.wglb",
+          "bytes": 31252,
+          "tris": 1199,
+          "verts": 702,
+          "color": "#3F3F46"
+        },
+        {
+          "id": "tron_4",
+          "role": "gpu",
+          "name": "PowerColor Hellhound OC Radeon RX 9070 XT 16GB GDDR6",
+          "category": "GPU",
+          "file": "assets/3d/prepared/tron_4.wglb",
+          "bytes": 154660,
+          "tris": 5813,
+          "verts": 3537,
+          "color": "#4B5563"
+        },
+        {
+          "id": "tron_5",
+          "role": "mobo",
+          "name": "Gigabyte X870 AORUS ELITE WIFI7 AM5 DDR5 ATX",
+          "category": "Motherboard",
+          "file": "assets/3d/prepared/tron_5.wglb",
+          "bytes": 152128,
+          "tris": 5988,
+          "verts": 3344,
+          "color": "#2E3440"
+        },
+        {
+          "id": "tron_6",
+          "role": "case",
+          "name": "Phanteks NV5 ATX Mid Tower Black Tempered Glass Side Panel",
+          "category": "PCCase",
+          "file": "assets/3d/prepared/tron_6.wglb",
+          "bytes": 313108,
+          "tris": 13721,
+          "verts": 6185,
+          "color": "#202634"
+        },
+        {
+          "id": "tron_7",
+          "role": "psu",
+          "name": "MSI MAG A850GL PCIE5 850W Fully Modular 80+ Gold Certified",
+          "category": "PSU",
+          "file": "assets/3d/prepared/tron_7.wglb",
+          "bytes": 64192,
+          "tris": 2586,
+          "verts": 1381,
+          "color": "#1F2937"
+        },
+        {
+          "id": "tron_8",
+          "role": "ram",
+          "name": "Corsair Vengeance RGB Black DDR5-6400 CL32 32GB (2x16GB)",
+          "category": "RAM",
+          "file": "assets/3d/prepared/tron_8.wglb",
+          "bytes": 21424,
+          "tris": 866,
+          "verts": 459,
+          "color": "#5C4033"
+        }
+      ]
+    },
+    {
+      "id": "msi",
+      "name": "MSI MEG - Golden Dragon",
+      "parts": [
+        {
+          "id": "msi_0",
+          "role": "ram",
+          "name": "Corsair Vengeance RGB Black / Gray DDR5-6400 CL32 64GB (2x32GB)",
+          "category": "RAM",
+          "file": "assets/3d/prepared/msi_0.wglb",
+          "bytes": 21424,
+          "tris": 866,
+          "verts": 459,
+          "color": "#5C4033"
+        },
+        {
+          "id": "msi_1",
+          "role": "psu",
+          "name": "MSI MEG Ai-T PCIE5 Black / Gold 1600W Fully Modular 80+ Titanium Certified",
+          "category": "PSU",
+          "file": "assets/3d/prepared/msi_1.wglb",
+          "bytes": 61324,
+          "tris": 2497,
+          "verts": 1306,
+          "color": "#1F2937"
+        },
+        {
+          "id": "msi_2",
+          "role": "mobo",
+          "name": "MSI MEG X870E GODLIKE AM5 DDR5 EATX",
+          "category": "Motherboard",
+          "file": "assets/3d/prepared/msi_2.wglb",
+          "bytes": 161476,
+          "tris": 5967,
+          "verts": 3744,
+          "color": "#2E3440"
+        },
+        {
+          "id": "msi_3",
+          "role": "gpu",
+          "name": "MSI GPU (SKU Newegg N82E16814137911, dari payload yang sama)",
+          "category": "GPU",
+          "file": "assets/3d/prepared/msi_3.wglb",
+          "bytes": 155488,
+          "tris": 5974,
+          "verts": 3491,
+          "color": "#4B5563"
+        },
+        {
+          "id": "msi_4",
+          "role": "case",
+          "name": "MSI MEG MAESTRO 900R",
+          "category": "PCCase",
+          "file": "assets/3d/prepared/msi_4.wglb",
+          "bytes": 323212,
+          "tris": 13989,
+          "verts": 6472,
+          "color": "#202634"
+        },
+        {
+          "id": "msi_5",
+          "role": "fan",
+          "name": "MSI MEG MAESTRO 900R OEM 160mm Fan",
+          "category": "CaseFan",
+          "file": "assets/3d/prepared/msi_5.wglb",
+          "bytes": 29284,
+          "tris": 1199,
+          "verts": 620,
+          "color": "#3F3F46"
+        },
+        {
+          "id": "msi_6",
+          "role": "cpu",
+          "name": "MSI MEG CORELIQUID E15 360",
+          "category": "CPUCooler",
+          "file": "assets/3d/prepared/msi_6.wglb",
+          "bytes": 85096,
+          "tris": 3494,
+          "verts": 1798,
+          "color": "#374151"
+        },
+        {
+          "id": "msi_7",
+          "role": "cpu",
+          "name": "MSI MEG CORELIQUID E15 360",
+          "category": "CPUCooler",
+          "file": "assets/3d/prepared/msi_7.wglb",
+          "bytes": 83728,
+          "tris": 3500,
+          "verts": 1738,
+          "color": "#374151"
+        },
+        {
+          "id": "msi_8",
+          "role": "cpu",
+          "name": "MSI MEG CORELIQUID E15 360",
+          "category": "CPUCooler",
+          "file": "assets/3d/prepared/msi_8.wglb",
+          "bytes": 84712,
+          "tris": 3494,
+          "verts": 1782,
+          "color": "#374151"
+        },
+        {
+          "id": "msi_9",
+          "role": "cpu",
+          "name": "MSI MEG CORELIQUID E15 360",
+          "category": "CPUCooler",
+          "file": "assets/3d/prepared/msi_9.wglb",
+          "bytes": 83728,
+          "tris": 3500,
+          "verts": 1738,
+          "color": "#374151"
+        },
+        {
+          "id": "msi_10",
+          "role": "fan",
+          "name": "MSI MEG CORELIQUID E15 360 OEM FAN",
+          "category": "CaseFan",
+          "file": "assets/3d/prepared/msi_10.wglb",
+          "bytes": 29008,
+          "tris": 1186,
+          "verts": 615,
+          "color": "#3F3F46"
+        }
+      ]
+    },
+    {
+      "id": "white",
+      "name": "WHITE tear ran down my leg ahh build",
+      "parts": [
+        {
+          "id": "white_0",
+          "role": "cpu",
+          "name": "NZXT Kraken Water 360mm RGB 78.02 CFM White [cpu_block]",
+          "category": "CPUCooler",
+          "file": "assets/3d/prepared/white_0.wglb",
+          "bytes": 67420,
+          "tris": 2651,
+          "verts": 1483,
+          "color": "#374151"
+        },
+        {
+          "id": "white_1",
+          "role": "cpu",
+          "name": "NZXT Kraken Water 360mm RGB 78.02 CFM White [radiator]",
+          "category": "CPUCooler",
+          "file": "assets/3d/prepared/white_1.wglb",
+          "bytes": 102556,
+          "tris": 3459,
+          "verts": 2543,
+          "color": "#374151"
+        },
+        {
+          "id": "white_2",
+          "role": "fan",
+          "name": "Corsair RS120 120mm White ARGB PWM 3-Pack",
+          "category": "CaseFan",
+          "file": "assets/3d/prepared/white_2.wglb",
+          "bytes": 32632,
+          "tris": 1200,
+          "verts": 759,
+          "color": "#3F3F46"
+        },
+        {
+          "id": "white_3",
+          "role": "fan",
+          "name": "NZXT F120 RGB Core 120mm RGB PWM 78.86 CFM White",
+          "category": "CaseFan",
+          "file": "assets/3d/prepared/white_3.wglb",
+          "bytes": 30856,
+          "tris": 1200,
+          "verts": 685,
+          "color": "#3F3F46"
+        },
+        {
+          "id": "white_4",
+          "role": "gpu",
+          "name": "ASUS ROG Astral GeForce RTX 5090 32GB GDDR7 WHITE OC Edition",
+          "category": "GPU",
+          "file": "assets/3d/prepared/white_4.wglb",
+          "bytes": 154480,
+          "tris": 5934,
+          "verts": 3469,
+          "color": "#4B5563"
+        },
+        {
+          "id": "white_5",
+          "role": "mobo",
+          "name": "Gigabyte X870 AORUS ELITE WIFI7 ICE",
+          "category": "Motherboard",
+          "file": "assets/3d/prepared/white_5.wglb",
+          "bytes": 151504,
+          "tris": 5938,
+          "verts": 3343,
+          "color": "#2E3440"
+        },
+        {
+          "id": "white_6",
+          "role": "case",
+          "name": "Corsair 3500X ARGB ATX Mid Tower White Tempered Glass",
+          "category": "PCCase",
+          "file": "assets/3d/prepared/white_6.wglb",
+          "bytes": 335308,
+          "tris": 13711,
+          "verts": 7115,
+          "color": "#202634"
+        },
+        {
+          "id": "white_7",
+          "role": "psu",
+          "name": "Corsair RM1000e (2025) White 1000W Fully Modular",
+          "category": "PSU",
+          "file": "assets/3d/prepared/white_7.wglb",
+          "bytes": 129796,
+          "tris": 5735,
+          "verts": 2540,
+          "color": "#1F2937"
+        },
+        {
+          "id": "white_8",
+          "role": "ram",
+          "name": "Corsair Vengeance RGB White / Silver DDR5-6000 CL36 32GB (2x16GB)",
+          "category": "RAM",
+          "file": "assets/3d/prepared/white_8.wglb",
+          "bytes": 21088,
+          "tris": 854,
+          "verts": 451,
+          "color": "#5C4033"
+        }
+      ]
+    },
+    {
+      "id": "piets",
+      "name": "PIETS PC",
+      "parts": [
+        {
+          "id": "piets_0",
+          "role": "cpu",
+          "name": "NZXT Kraken Core 240 RGB Black [cpu_block]",
+          "category": "CPUCooler",
+          "file": "assets/3d/prepared/piets_0.wglb",
+          "bytes": 86584,
+          "tris": 3500,
+          "verts": 1857,
+          "color": "#374151"
+        },
+        {
+          "id": "piets_1",
+          "role": "cpu",
+          "name": "NZXT Kraken Core 240 RGB Black [radiator]",
+          "category": "CPUCooler",
+          "file": "assets/3d/prepared/piets_1.wglb",
+          "bytes": 41200,
+          "tris": 1516,
+          "verts": 958,
+          "color": "#374151"
+        },
+        {
+          "id": "piets_2",
+          "role": "fan",
+          "name": "NZXT F Core 140mm Black RGB PWM 2-Pack 89.48 CFM Fans",
+          "category": "CaseFan",
+          "file": "assets/3d/prepared/piets_2.wglb",
+          "bytes": 30736,
+          "tris": 1200,
+          "verts": 680,
+          "color": "#3F3F46"
+        },
+        {
+          "id": "piets_3",
+          "role": "fan",
+          "name": "NZXT F120 Core 120mm Black RGB PWM",
+          "category": "CaseFan",
+          "file": "assets/3d/prepared/piets_3.wglb",
+          "bytes": 30856,
+          "tris": 1200,
+          "verts": 685,
+          "color": "#3F3F46"
+        },
+        {
+          "id": "piets_4",
+          "role": "fan",
+          "name": "NZXT F240 RGB Core - 240mm Single-Frame Fan Unit Black",
+          "category": "CaseFan",
+          "file": "assets/3d/prepared/piets_4.wglb",
+          "bytes": 29788,
+          "tris": 1199,
+          "verts": 641,
+          "color": "#3F3F46"
+        },
+        {
+          "id": "piets_5",
+          "role": "gpu",
+          "name": "ASUS PRIME GeForce RTX 5070 12GB GDDR7",
+          "category": "GPU",
+          "file": "assets/3d/prepared/piets_5.wglb",
+          "bytes": 155080,
+          "tris": 5918,
+          "verts": 3502,
+          "color": "#4B5563"
+        },
+        {
+          "id": "piets_6",
+          "role": "mobo",
+          "name": "ASUS ROG STRIX B650E-F GAMING WIFI AM5 DDR5 ATX",
+          "category": "Motherboard",
+          "file": "assets/3d/prepared/piets_6.wglb",
+          "bytes": 151228,
+          "tris": 5895,
+          "verts": 3353,
+          "color": "#2E3440"
+        },
+        {
+          "id": "piets_7",
+          "role": "case",
+          "name": "NZXT H6 Flow RGB ATX Mid Tower Black Tempered Glass",
+          "category": "PCCase",
+          "file": "assets/3d/prepared/piets_7.wglb",
+          "bytes": 308176,
+          "tris": 13898,
+          "verts": 5891,
+          "color": "#202634"
+        },
+        {
+          "id": "piets_8",
+          "role": "psu",
+          "name": "be quiet! Straight Power 12 Black 750W Fully Modular 80+ Platinum",
+          "category": "PSU",
+          "file": "assets/3d/prepared/piets_8.wglb",
+          "bytes": 65500,
+          "tris": 2497,
+          "verts": 1480,
+          "color": "#1F2937"
+        },
+        {
+          "id": "piets_9",
+          "role": "ram",
+          "name": "Corsair Vengeance Black DDR5-6000 CL36 32GB (2x16GB)",
+          "category": "RAM",
+          "file": "assets/3d/prepared/piets_9.wglb",
+          "bytes": 32932,
+          "tris": 1347,
+          "verts": 698,
+          "color": "#5C4033"
+        }
+      ]
+    },
+    {
+      "id": "firstpc",
+      "name": "First Pc",
+      "parts": [
+        {
+          "id": "firstpc_0",
+          "role": "cpu",
+          "name": "ARCTIC Liquid Freezer III Pro 240mm Black [cpu_block]",
+          "category": "CPUCooler",
+          "file": "assets/3d/prepared/firstpc_0.wglb",
+          "bytes": 85528,
+          "tris": 3500,
+          "verts": 1813,
+          "color": "#374151"
+        },
+        {
+          "id": "firstpc_1",
+          "role": "cpu",
+          "name": "ARCTIC Liquid Freezer III Pro 240mm Black [radiator]",
+          "category": "CPUCooler",
+          "file": "assets/3d/prepared/firstpc_1.wglb",
+          "bytes": 173572,
+          "tris": 3463,
+          "verts": 5500,
+          "color": "#374151"
+        },
+        {
+          "id": "firstpc_2",
+          "role": "fan",
+          "name": "ARCTIC P12 Pro 120mm Black PWM",
+          "category": "CaseFan",
+          "file": "assets/3d/prepared/firstpc_2.wglb",
+          "bytes": 34228,
+          "tris": 1195,
+          "verts": 828,
+          "color": "#3F3F46"
+        },
+        {
+          "id": "firstpc_3",
+          "role": "fan",
+          "name": "Asus Proart PA401 120mm Fan Black",
+          "category": "CaseFan",
+          "file": "assets/3d/prepared/firstpc_3.wglb",
+          "bytes": 28876,
+          "tris": 1199,
+          "verts": 603,
+          "color": "#3F3F46"
+        },
+        {
+          "id": "firstpc_4",
+          "role": "fan",
+          "name": "Asus Proart PA401 160mm Fan Black",
+          "category": "CaseFan",
+          "file": "assets/3d/prepared/firstpc_4.wglb",
+          "bytes": 28264,
+          "tris": 1180,
+          "verts": 587,
+          "color": "#3F3F46"
+        },
+        {
+          "id": "firstpc_5",
+          "role": "gpu",
+          "name": "ASUS PRIME GeForce RTX 5060 8GB GDDR7 OC Edition",
+          "category": "GPU",
+          "file": "assets/3d/prepared/firstpc_5.wglb",
+          "bytes": 155812,
+          "tris": 5947,
+          "verts": 3518,
+          "color": "#4B5563"
+        },
+        {
+          "id": "firstpc_6",
+          "role": "mobo",
+          "name": "Asus TUF GAMING B650-PLUS WIFI",
+          "category": "Motherboard",
+          "file": "assets/3d/prepared/firstpc_6.wglb",
+          "bytes": 153820,
+          "tris": 5981,
+          "verts": 3418,
+          "color": "#2E3440"
+        },
+        {
+          "id": "firstpc_7",
+          "role": "case",
+          "name": "Asus ProArt PA401 Wood Edition ATX Mid Tower Black with Tempered Glass Side Panel",
+          "category": "PCCase",
+          "file": "assets/3d/prepared/firstpc_7.wglb",
+          "bytes": 330172,
+          "tris": 13489,
+          "verts": 7012,
+          "color": "#202634"
+        },
+        {
+          "id": "firstpc_8",
+          "role": "ram",
+          "name": "Patriot Viper Black / White DDR5-6000 CL30 32GB (2x16GB)",
+          "category": "RAM",
+          "file": "assets/3d/prepared/firstpc_8.wglb",
+          "bytes": 48628,
+          "tris": 1999,
+          "verts": 1026,
+          "color": "#5C4033"
+        }
+      ]
+    }
+  ]
 }

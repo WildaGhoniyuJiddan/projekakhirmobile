@@ -126,11 +126,32 @@ class WglbVariant {
   }
 }
 
-/// Katalog varian 3D: role -> daftar varian.
-class WglbCatalog {
-  WglbCatalog(this.roles);
+/// Satu set PC utuh dari catalog.json v2: semua part dari satu build
+/// BuildCores. Part-partnya sudah saling pas di frame yang sama —
+/// tampilkan selalu sebagai satu kesatuan, jangan dicampur antar set.
+class WglbSet {
+  const WglbSet({required this.id, required this.name, required this.parts});
 
-  final Map<String, List<WglbVariant>> roles;
+  final String id;
+  final String name;
+  final List<WglbVariant> parts;
+
+  static WglbSet fromJson(Map<String, dynamic> json) => WglbSet(
+        id: json['id'] as String,
+        name: json['name'] as String? ?? json['id'] as String,
+        parts: [
+          for (final e in (json['parts'] as List? ?? const []))
+            if (e is Map<String, dynamic>) WglbVariant.fromJson(e),
+        ],
+      );
+}
+
+/// Katalog 3D v2: daftar set PC utuh. Yang diacak di UI adalah set-nya;
+/// model murni hiasan dan tidak mewakili komponen hasil build acak.
+class WglbCatalog {
+  WglbCatalog(this.sets);
+
+  final List<WglbSet> sets;
 
   static WglbCatalog? _cached;
 
@@ -141,29 +162,19 @@ class WglbCatalog {
     if (cached != null) return cached;
     final raw = await rootBundle.loadString(catalogAsset);
     final decoded = jsonDecode(raw) as Map<String, dynamic>;
-    final roles = <String, List<WglbVariant>>{};
-    final rawRoles = decoded['roles'];
-    if (rawRoles is Map<String, dynamic>) {
-      for (final entry in rawRoles.entries) {
-        final list = entry.value;
-        if (list is! List) continue;
-        roles[entry.key] = [
-          for (final e in list)
-            if (e is Map<String, dynamic>) WglbVariant.fromJson(e),
-        ];
-      }
-    }
-    final catalog = WglbCatalog(roles);
+    final sets = <WglbSet>[
+      for (final e in (decoded['sets'] as List? ?? const []))
+        if (e is Map<String, dynamic>) WglbSet.fromJson(e),
+    ];
+    final catalog = WglbCatalog(sets);
     _cached = catalog;
     return catalog;
   }
 
-  List<WglbVariant> of(String role) => roles[role] ?? const [];
+  bool get isEmpty => sets.isEmpty;
 
-  bool get isEmpty => roles.isEmpty;
-
-  /// Total byte dari seluruh varian — dipakai untuk budget APK.
-  int get totalBytes => roles.values
-      .expand((l) => l)
+  /// Total triangle seluruh set — dipakai untuk budget APK.
+  int get totalTriangles => sets
+      .expand((s) => s.parts)
       .fold(0, (s, v) => s + v.triangleCount);
 }

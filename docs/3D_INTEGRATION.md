@@ -12,7 +12,7 @@ BuilderScreen  (state & logika existing, tidak berubah)
     │
     ├── ShakeDetector  →  _build()  →  builderApi.randomBuild()   [data asli]
     │                                   │
-    │                                   └──> _pickStageParts()  [peta ke varian 3D]
+    │                                   └──> _pickStageParts()  [pilih 1 set PC utuh acak]
     │
     └── Pc3DStage  (widget visual baru, non-intrusif)
             │
@@ -56,14 +56,27 @@ assets/3d/*.glb  (Draco, ±180 MB)
   → terapkan transform node (world matrix) — geometri BuildCores
     ditaruh di matriks node; tanpa ini semua panel menumpuk di origin
   → weld by position (seam vertex digabung)
-  → Meshopt simplify (budget triangle per role)
+  → buang shell kecil < 12mm (sekrup/kapasitor — lantai topologi
+    simplifier; tak terlihat di skala panggung)
+  → Meshopt simplify (budget triangle per kategori; case dikunci
+    error rendah supaya kaca lengkung tidak jadi duri)
   → hitung normal
-  → tempatkan di slot rakitan (skala milimeter)
+  → SATU transform bersama per set (pusat bbox → origin, skala
+    seragam; part TIDAK dipindah sendiri-sendiri)
   → compact (buang vertex tak terpakai)
         ▼
-assets/3d/prepared/*.wglb  (flat f32, ±1.7 MB total)
-        + catalog.json (nama produk asli per varian)
+assets/3d/prepared/*.wglb  (flat f32, ±5 MB total)
+        + catalog.json v2 (daftar set PC utuh)
 ```
+
+**Model aset = satu set PC utuh per build** (keputusan produk
+2026-10-21): yang diacak di UI adalah set-nya, bukan part-nya, dan
+model murni hiasan — tidak mewakili komponen hasil acakan. Karena itu
+pipeline hanya memproses kategori komponen PC internal (Motherboard,
+GPU, RAM, PSU, CPUCooler, PCCase, CaseFan); kategori setup meja dari
+build BuildCores (Chair, Desk, Monitor, Keyboard, Speaker, ...)
+dibuang. Set `intel285k` tidak dipakai: build-nya tidak punya
+Motherboard/PSU/CPUCooler.
 
 Format `.wglb` (flat, tanpa dependensi runtime):
 
@@ -84,23 +97,22 @@ kecil daripada GLB per part.
 
 ### Angka hasil pipeline
 
-| Role  | Varian | Tris  | Bytes  |
-| ----- | ------ | ----- | ------ |
-| mobo  | 3      | ~5,9k | ~164 KB |
-| gpu   | 3      | ~5,8k | ~146 KB |
-| ram   | 2      | 1,5k  | ~44 KB  |
-| cpu   | 2      | ~3k   | ~77 KB  |
-| psu   | 2      | ~3k   | ~74 KB  |
-| fan   | 2      | ~0,9k | ~23 KB  |
-| case  | 2      | ~7k   | ~161 KB |
-| **TOTAL** | **16** | **66,1k** | **1,69 MB** |
+| Set       | Part | Tris   | Bytes   |
+| --------- | ---- | ------ | ------- |
+| tron      | 9    | 37,4k  | 0,93 MB |
+| msi       | 11   | 45,7k  | 1,12 MB |
+| white     | 9    | 40,7k  | 1,03 MB |
+| piets     | 10   | 38,2k  | 0,93 MB |
+| firstpc   | 9    | 38,0k  | 1,04 MB |
+| **TOTAL** | **48** | **199,9k** | **5,04 MB** |
 
-D banding: 180 MB → 1,69 MB (**−99,1 %**).
+Satu scene yang tampil = satu set (maks 45,7k tri). D banding sumber:
+180 MB → 5,04 MB (**−97,2 %**).
 
 ### Aset mentah tidak ada di repo
 
 `assets/3d/*` mentah (85 GLB Draco, ±180 MB) **dihapus dari repo** dan di-ignore.
-Yang tetap di repo hanya `assets/3d/prepared/` (1,69 MB) — itu yang dibundel ke
+Yang tetap di repo hanya `assets/3d/prepared/` (5,04 MB) — itu yang dibundel ke
 APK. `.gitignore` memuat:
 
 ```gitignore
@@ -118,7 +130,8 @@ Untuk regenerate: unduh GLB BuildCores ke `assets/3d/`, lalu jalankan
 `BuilderScreen` tetap jadi satu-satunya sumber kebenaran:
 
 - `_build()` dipanggil oleh tombol **Rakit Acak** **dan** oleh `ShakeDetector`.
-- `_pickStageParts()` memetakan `RandomBuild` → varian 3D per role.
+- `_pickStageParts()` memilih SATU set PC utuh acak dari katalog —
+  murni hiasan, tidak memetakan `RandomBuild` sama sekali.
 - `_stageParts` di-pass ke `Pc3DStage` lewat parameter widget biasa.
 
 Yang **tidak** berubah: `builderApi.randomBuild()`, `ShakeDetector`,
@@ -163,7 +176,7 @@ memRunning binary parser Draco di dalam isolate Flutter menambah ~1,2 MB native
 library dan kompleksitas; payoff-nya (1,7 MB vs 180 MB) sudah didapat.
 
 **Pixel ratio / frame rate.** `GlbView` menangani render loop native; APK ini
-tidak pernah membuat scene >66k triangle dan TEXTURENYA DIHAPUS (lihat
+tidak pernah membuat scene >46k triangle dan TEXTURENYA DIHAPUS (lihat
 `tool/prepare_3d.mjs` — semua texture dilepas, warna came flat PBR). Ini yang
 membuat 60 FPS realistis di kelas perangkat mid-range.
 
@@ -194,8 +207,8 @@ Fallback **tidak pernah membuat crash**: semua jalur error berakhir di
 | A2 | Regresi suite penuh | `flutter test --no-pub` | semua hijau | ✅ 134/134 hijau |
 | A3 | GLB runtime valid | `parseGlb()` plugin pada GLB rakitan | parse sukses | ✅ test `pc_assets_test.dart` |
 | A4 | Normalizer | panjang normal | 1,0 ±0,01 | ✅ |
-| A5 | Budget triangle scene | jumlah tri | < 60k | ✅ 66,1k total katalog; satu scene < 40k |
-| A6 | Budget ukuran aset | `du assets/3d/prepared` | < 2 MB | ✅ 1,69 MB |
+| A5 | Budget triangle scene | jumlah tri | < 60k | ✅ satu set maks 45,7k (tes per set) |
+| A6 | Budget ukuran aset | `du assets/3d/prepared` | < 6 MB | ✅ 5,04 MB (5 set PC utuh) |
 | A7 | APK release | `flutter build apk --release` | build sukses | ✅ 66,0 MB, plugin native compile |
 | A8 | Overflow 320 px | `test/monex/monex_overflow_test.dart` | 0 overflow | ✅ |
 | A9 | Aset 3D di APK | `unzip -l app-release.apk` | hanya `prepared/` | ✅ 1.695.899 B; raw 0 B |

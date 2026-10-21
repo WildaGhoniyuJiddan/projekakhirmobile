@@ -8,21 +8,30 @@ import 'package:worthbang/services/wglb.dart';
 /// Verifikasi nyata: file .wglb hasil pipeline offline + GLB hasil rakitan
 /// harus bisa dibaca parser milik plugin (parser yang sama dengan yang
 /// dipakai runtime native).
+///
+/// Model aset = SATU SET PC utuh per build BuildCores (catalog v2).
+/// Yang diacak di UI adalah set-nya; part tidak pernah dicampur antar set.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('catalog asset terbaca dan punya varian per role', () async {
+  test('catalog terbaca: beberapa set, masing-masing PC utuh', () async {
     final catalog = await WglbCatalog.load();
     expect(catalog.isEmpty, isFalse);
-    for (final role in ['mobo', 'gpu', 'ram', 'cpu', 'psu', 'fan', 'case']) {
-      expect(catalog.of(role), isNotEmpty, reason: 'role $role');
+    expect(catalog.sets.length, greaterThanOrEqualTo(3));
+    for (final set in catalog.sets) {
+      expect(set.parts.length, greaterThanOrEqualTo(7), reason: set.id);
+      // Satu set = satu build: tepat satu case, ada mobo dan gpu.
+      expect(set.parts.where((p) => p.role == 'case').length, 1,
+          reason: set.id);
+      expect(set.parts.any((p) => p.role == 'mobo'), isTrue, reason: set.id);
+      expect(set.parts.any((p) => p.role == 'gpu'), isTrue, reason: set.id);
     }
   });
 
-  test('setiap varian .wglb valid dan punya geometri', () async {
+  test('setiap part .wglb valid dan punya geometri', () async {
     final catalog = await WglbCatalog.load();
-    for (final role in catalog.roles.keys) {
-      for (final variant in catalog.of(role)) {
+    for (final set in catalog.sets) {
+      for (final variant in set.parts) {
         final data = await File(variant.file).readAsBytes();
         final part = WglbPart.parse(data);
         expect(part.vertexCount, greaterThan(0), reason: variant.id);
@@ -38,15 +47,48 @@ void main() {
     }
   });
 
-  test('scene rakitan bisa di-parse plugin native', () async {
+  test('bentuk set masuk akal: menara tegak, bukan kubus/slab ambruk',
+      () async {
+    // Gerbang yang dulu TIDAK ada: tes lama cuma cek parse/normal/budget,
+    // sehingga bug transform node (semua panel menumpuk jadi kubus di
+    // origin) lolos. Bbox gabungan satu set harus menyerupai tower PC:
+    // sisi terpanjang ~= 440mm (normalisasi pipeline), proporsi tidak
+    // kubik sempurna dan tidak pipih seperti slab.
     final catalog = await WglbCatalog.load();
-    final parts = <WglbVariant>[];
-    for (final role in ['case', 'mobo', 'cpu', 'ram', 'gpu', 'psu', 'fan']) {
-      parts.add(catalog.of(role).first);
+    for (final set in catalog.sets) {
+      final min = [double.infinity, double.infinity, double.infinity];
+      final max = [double.negativeInfinity, double.negativeInfinity,
+        double.negativeInfinity];
+      for (final variant in set.parts) {
+        final data = await File(variant.file).readAsBytes();
+        final part = WglbPart.parse(data);
+        for (var i = 0; i < part.positions.length; i += 3) {
+          for (var c = 0; c < 3; c++) {
+            final v = part.positions[i + c];
+            if (v < min[c]) min[c] = v;
+            if (v > max[c]) max[c] = v;
+          }
+        }
+      }
+      final ext = [max[0] - min[0], max[1] - min[1], max[2] - min[2]]..sort();
+      expect(ext[2], closeTo(440, 25), reason: '${set.id} sisi terpanjang');
+      expect(ext[0] / ext[2], lessThan(0.7),
+          reason: '${set.id} terlalu kubik: $ext');
+      expect(ext[1] / ext[2], greaterThan(0.55),
+          reason: '${set.id} terlalu pipih: $ext');
+      // Tegak: tinggi (y) harus salah satu dari dua sisi terbesar.
+      final yExt = max[1] - min[1];
+      expect(yExt, greaterThanOrEqualTo(ext[1] - 1),
+          reason: '${set.id} tidak tegak: y=$yExt ext=$ext');
     }
+  });
+
+  test('scene satu set utuh bisa di-parse plugin native', () async {
+    final catalog = await WglbCatalog.load();
+    final set = catalog.sets.first;
 
     final sceneParts = <ScenePart>[];
-    for (final variant in parts) {
+    for (final variant in set.parts) {
       final data = await File(variant.file).readAsBytes();
       final geometry = WglbPart.parse(data);
       sceneParts.add(ScenePart.fromVariant(variant, geometry));
@@ -75,17 +117,15 @@ void main() {
     }
   });
 
-  test('total triangle scene tetap dalam budget', () async {
+  test('total triangle per set tetap dalam budget', () async {
     final catalog = await WglbCatalog.load();
-    final parts = <WglbVariant>[];
-    for (final role in ['case', 'mobo', 'cpu', 'ram', 'gpu', 'psu', 'fan']) {
-      parts.add(catalog.of(role).first);
+    for (final set in catalog.sets) {
+      var tris = 0;
+      for (final variant in set.parts) {
+        final data = await File(variant.file).readAsBytes();
+        tris += WglbPart.parse(data).triangleCount;
+      }
+      expect(tris, lessThan(60000), reason: 'budget triangles set ${set.id}');
     }
-    var tris = 0;
-    for (final variant in parts) {
-      final data = await File(variant.file).readAsBytes();
-      tris += WglbPart.parse(data).triangleCount;
-    }
-    expect(tris, lessThan(60000), reason: 'budget triangles per scene');
   });
 }

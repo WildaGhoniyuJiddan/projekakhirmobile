@@ -17,7 +17,7 @@
 //    for the merged surface.
 //
 // Run: node tool/prepare_3d.mjs
-import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { NodeIO } from '@gltf-transform/core';
@@ -38,31 +38,35 @@ const SETS = [
   { id: 'white', dir: 'buildcores-build-white-tear-ran-down-my-leg-ahh-build-bOq5BJCQk-glb' },
   { id: 'piets', dir: 'buildcores-build-piets-pc-9J3EfSt9Y-glb' },
   { id: 'firstpc', dir: 'buildcores-build-first-pc-oSA2Nlo7e-glb' },
-  { id: 'intel285k', dir: 'buildcores-build-2026-intel-285k-sfs52_vuJ-glb' },
+  // 'intel285k' SENGAJA tidak dipakai: build-nya tidak punya
+  // Motherboard/PSU/CPUCooler (cuma case+GPU+RAM+fan + setup meja),
+  // jadi sebagai set PC ia tidak lengkap.
 ];
 
-// README category -> role used by the app.
-const CATEGORY_ROLE = {
-  Motherboard: 'mobo',
-  GPU: 'gpu',
-  RAM: 'ram',
-  PSU: 'psu',
-  CPUCooler: 'cpu',
-  PCCase: 'case',
-  CaseFan: 'fan',
-};
+// KEPUTUSAN PRODUK (Dan, 2026-10-21): aset dipakai sebagai SATU SET PC
+// utuh per build BuildCores. Yang diacak di app = set-nya, bukan part.
+// Model 3D murni hiasan — TIDAK mewakili komponen hasil acakan build.
+// Konsekuensinya: part-part satu set TIDAK dipindah/dirotasi sendiri-
+// sendiri; mereka sudah saling pas di frame dunia build asalnya. Seluruh
+// set hanya diberi SATU transform bersama (pusat bbox -> origin, skala
+// seragam) supaya relatifnya persis seperti build aslinya.
 
-// Variants per role, triangle budget, longest-edge size in millimetres, the
-// part's slot in the assembled scene, and its Monex-tinted base colour.
-const ROLES = {
-  mobo: { count: 3, budget: 6000, sizeMm: 300, slot: [0, 0, 0], color: '#2E3440' },
-  gpu: { count: 3, budget: 6000, sizeMm: 270, slot: [-10, 96, 62], color: '#4B5563' },
-  ram: { count: 2, budget: 1500, sizeMm: 130, slot: [96, 34, -46], color: '#5C4033' },
-  cpu: { count: 2, budget: 3000, sizeMm: 110, slot: [-22, 42, -22], color: '#374151' },
-  psu: { count: 2, budget: 2200, sizeMm: 150, slot: [172, 44, 92], color: '#1F2937' },
-  fan: { count: 2, budget: 900, sizeMm: 120, slot: [-124, 66, 26], color: '#3F3F46' },
-  case: { count: 2, budget: 3500, sizeMm: 440, slot: [0, 0, 0], color: '#202634' },
+// README category -> gaya tampilan: role (nama material), warna flat
+// Monex, dan budget triangle per file part.
+const CATEGORY_STYLE = {
+  Motherboard: { role: 'mobo', color: '#2E3440', budget: 6000 },
+  GPU: { role: 'gpu', color: '#4B5563', budget: 6000 },
+  RAM: { role: 'ram', color: '#5C4033', budget: 2000 },
+  PSU: { role: 'psu', color: '#1F2937', budget: 2500 },
+  CPUCooler: { role: 'cpu', color: '#374151', budget: 3500 },
+  // Case kaca lengkung (MAESTRO 900R): simplify error tinggi membuat
+  // chord panjang melintasi lengkungan = segitiga duri. Budget besar +
+  // error dikunci rendah khusus case.
+  PCCase: { role: 'case', color: '#202634', budget: 14000, maxErr: 0.08 },
+  CaseFan: { role: 'fan', color: '#3F3F46', budget: 1200 },
 };
+// Sisi terpanjang satu set utuh dinormalkan ke ukuran ini (mm).
+const SET_SIZE_MM = 440;
 
 const io = new NodeIO()
   .registerExtensions(ALL_EXTENSIONS)
@@ -71,15 +75,25 @@ const io = new NodeIO()
     'draco3d.encoder': await draco3d.createEncoderModule(),
   });
 
-/// "- file.glb | Category | Name" rows from a set's README.txt.
+/// "- file.glb | Category | Name" rows from a set's README.txt, plus
+/// the build's display name from the README header ("# Tron PC — ...").
 async function readManifest(setDir) {
   const rows = [];
+  let setName = null;
   for (const entry of await readdir(setDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const readme = path.join(setDir, entry.name, 'README.txt');
     if (!existsSync(readme)) continue;
     const text = await readFile(readme, 'utf-8');
     for (const line of text.split(/\r?\n/)) {
+      if (!setName && line.startsWith('#')) {
+        // Dua format header BuildCores:
+        // "# Tron PC — share ..." dan "# BuildCores — GLB build 'MSI MEG ...'".
+        const quoted = line.match(/'([^']+)'/);
+        const plain = line.match(/^#\s*(.+?)\s*(?:—|--|\()/);
+        if (quoted) setName = quoted[1].trim();
+        else if (plain) setName = plain[1].trim();
+      }
       const m = line.match(/^-\s*(\S+\.glb)\s*\|\s*([^|]+)\|(.*)$/);
       if (m) {
         // Field ketiga bisa punya ekor "| tri_count=162429" — buang agar
@@ -95,7 +109,7 @@ async function readManifest(setDir) {
       }
     }
   }
-  return rows;
+  return { setName, rows };
 }
 
 /// Merges vertices that share an exact position, dropping degenerates.
@@ -205,6 +219,53 @@ function compact(positions, indices) {
   return { positions: new Float32Array(out), indices: idx };
 }
 
+/// Buang komponen terhubung (shell) yang diagonal bbox-nya di bawah
+/// [minDiag] meter (satuan mentah GLB). Motherboard dsb. terdiri dari
+/// ratusan shell kecil (sekrup, kapasitor) yang masing-masing punya
+/// lantai topologi — simplifier tidak bisa menembusnya, total tri
+/// mentok puluhan ribu. Pada skala panggung 440mm shell < 12mm tidak
+/// terlihat, jadi buang saja sebelum simplify.
+function dropSmallComponents(positions, indices, minDiag = 0.012) {
+  const parent = new Int32Array(positions.length / 3);
+  for (let i = 0; i < parent.length; i++) parent[i] = i;
+  const find = (x) => {
+    while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+    return x;
+  };
+  for (let t = 0; t < indices.length; t += 3) {
+    const a = find(indices[t]);
+    const b = find(indices[t + 1]);
+    const c = find(indices[t + 2]);
+    if (a !== b) parent[a] = b;
+    if (b !== c) parent[b] = c;
+  }
+  const compMin = new Map(), compMax = new Map();
+  for (let v = 0; v < parent.length; v++) {
+    const r = find(v);
+    if (!compMin.has(r)) {
+      compMin.set(r, [Infinity, Infinity, Infinity]);
+      compMax.set(r, [-Infinity, -Infinity, -Infinity]);
+    }
+    const mn = compMin.get(r), mx = compMax.get(r);
+    for (let c = 0; c < 3; c++) {
+      const val = positions[v * 3 + c];
+      if (val < mn[c]) mn[c] = val;
+      if (val > mx[c]) mx[c] = val;
+    }
+  }
+  const keep = new Set();
+  for (const [r, mn] of compMin) {
+    const mx = compMax.get(r);
+    const diag = Math.hypot(mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]);
+    if (diag >= minDiag) keep.add(r);
+  }
+  const out = [];
+  for (let t = 0; t < indices.length; t += 3) {
+    if (keep.has(find(indices[t]))) out.push(indices[t], indices[t + 1], indices[t + 2]);
+  }
+  return new Uint32Array(out);
+}
+
 /// Area-weighted vertex normals from the welded mesh.
 function computeNormals(positions, indices) {
   const normals = new Float32Array(positions.length);
@@ -230,41 +291,55 @@ function computeNormals(positions, indices) {
   return normals;
 }
 
-/// Rotates so the thinnest axis points up, scales the longest edge to sizeMm
-/// and moves the part into its slot.
-function placePart(positions, normals, sizeMm, slot) {
+/// Satu transform bersama untuk SELURUH set: geser pusat bbox set ke
+/// origin dan skala seragam (sisi terpanjang -> SET_SIZE_MM). Relatif
+/// antar-part tidak berubah sama sekali — tidak ada rotasi, tidak ada
+/// permutasi sumbu, tidak ada slot per part.
+function setTransform(geos) {
   const min = [Infinity, Infinity, Infinity];
   const max = [-Infinity, -Infinity, -Infinity];
-  for (let i = 0; i < positions.length; i += 3) {
-    for (let c = 0; c < 3; c++) {
-      const v = positions[i + c];
-      if (v < min[c]) min[c] = v;
-      if (v > max[c]) max[c] = v;
+  for (const g of geos) {
+    for (let i = 0; i < g.positions.length; i += 3) {
+      for (let c = 0; c < 3; c++) {
+        const v = g.positions[i + c];
+        if (v < min[c]) min[c] = v;
+        if (v > max[c]) max[c] = v;
+      }
     }
   }
   const size = [max[0] - min[0], max[1] - min[1], max[2] - min[2]];
-  let thin = 0;
-  if (size[1] < size[thin]) thin = 1;
-  if (size[2] < size[thin]) thin = 2;
-  const rest = [0, 1, 2].filter((c) => c !== thin);
-  const scale = sizeMm / Math.max(size[rest[0]], size[rest[1]]);
-  const map = [rest[0], thin, rest[1]];
+  const scale = SET_SIZE_MM / Math.max(size[0], size[1], size[2]);
   const centre = [0, 1, 2].map((c) => (min[c] + max[c]) / 2);
+  return { centre, scale };
+}
 
+function applyTransform(positions, centre, scale) {
   const out = new Float32Array(positions.length);
-  const outN = new Float32Array(normals.length);
   for (let i = 0; i < positions.length; i += 3) {
-    const rel = [
-      positions[i] - centre[0],
-      positions[i + 1] - centre[1],
-      positions[i + 2] - centre[2],
-    ];
     for (let c = 0; c < 3; c++) {
-      out[i + c] = rel[map[c]] * scale + slot[c];
-      outN[i + c] = normals[i + map[c]];
+      out[i + c] = (positions[i + c] - centre[c]) * scale;
     }
   }
-  return { positions: out, normals: outN };
+  return out;
+}
+
+/// Simplify adaptif: longgarkan error bertahap dari geometri asli
+/// sampai budget tercapai atau error menyentuh [maxErr]. Mesh tertentu
+/// (kaca lengkung case) rusak bentuknya di error tinggi — untuk itu
+/// maxErr dikunci rendah dan sisa tri di atas budget diterima.
+function simplifyTo(geo, budget, maxErr = 0.5) {
+  if (geo.indices.length / 3 <= budget) return geo.indices;
+  const target = budget * 3;
+  let err = 0.02;
+  let dst = geo.indices;
+  while (err <= maxErr) {
+    [dst] = MeshoptSimplifier.simplify(
+      geo.indices, geo.positions, 3, target, err, [],
+    );
+    if (dst.length / 3 <= budget * 1.05) break;
+    err *= 2.5;
+  }
+  return dst;
 }
 
 /// 'WGLB' | version | vertexCount | indexCount | positions | normals | indices
@@ -293,87 +368,89 @@ function packPart(part) {
 
 async function main() {
   await mkdir(OUT, { recursive: true });
+  // Bersihkan output lama: nama file v2 berbeda (per set).
+  for (const f of await readdir(OUT)) {
+    if (f.endsWith('.wglb')) await rm(path.join(OUT, f));
+  }
 
-  const candidates = new Map();
+  const catalog = { version: 2, sets: [] };
+
   for (const set of SETS) {
     const setDir = path.join(RAW_ROOT, set.dir);
     if (!existsSync(setDir)) continue;
-    for (const row of await readManifest(setDir)) {
-      const role = CATEGORY_ROLE[row.category];
-      if (!role || !ROLES[role]) continue;
+    const { setName, rows } = await readManifest(setDir);
+    if (!rows.length) continue;
+
+    // Proses semua part set ini di frame dunia build asalnya.
+    const parts = [];
+    for (const row of rows) {
       if (!existsSync(row.path)) continue;
-      if (!candidates.has(role)) candidates.set(role, []);
-      candidates.get(role).push({ ...row, set: set.id });
-    }
-  }
-
-  const catalog = { version: 1, roles: {} };
-
-  for (const [role, cfg] of Object.entries(ROLES)) {
-    const pool = candidates.get(role) ?? [];
-    if (!pool.length) {
-      console.warn('no candidates for role', role);
-      continue;
-    }
-    pool.sort((a, b) => a.file.length - b.file.length);
-    const variants = [];
-    for (const cand of pool) {
-      if (variants.length >= cfg.count) break;
-      const geo = await loadGeometry(cand.path);
-      if (!geo.positions.length) continue;
-      if (geo.indices.length / 3 > cfg.budget) {
-        // Error adaptif: mesh tertentu (case kaca lengkung MAESTRO)
-        // mentok jauh di atas budget pada error 0.02 — longgarkan
-        // bertahap dari geometri ASLI sampai budget tercapai.
-        const target = cfg.budget * 3;
-        let err = 0.02;
-        let dst = geo.indices;
-        while (err <= 0.5) {
-          [dst] = MeshoptSimplifier.simplify(
-            geo.indices, geo.positions, 3, target, err, [],
-          );
-          if (dst.length / 3 <= cfg.budget * 1.05) break;
-          err *= 2.5;
-        }
-        geo.indices = dst;
+      // Whitelist kategori komponen PC internal saja. Build BuildCores
+      // bisa berisi setup meja utuh (Chair, Desk, Monitor, Keyboard,
+      // Speaker, ...) — itu bukan bagian PC dan frame dunianya skala
+      // ruangan, jadi selalu dibuang.
+      const style = CATEGORY_STYLE[row.category];
+      if (!style) {
+        console.log(`skip kategori ${row.category}: ${row.name.slice(0, 40)}`);
+        continue;
       }
+      let geo = await loadGeometry(row.path);
+      if (!geo.positions.length) continue;
+      geo.indices = dropSmallComponents(geo.positions, geo.indices);
+      if (!geo.indices.length) continue;
+      geo.indices = simplifyTo(geo, style.budget, style.maxErr);
       const packed0 = compact(geo.positions, geo.indices);
-      geo.positions = packed0.positions;
-      geo.indices = packed0.indices;
-      const normals = computeNormals(geo.positions, geo.indices);
-      const placed = placePart(geo.positions, normals, cfg.sizeMm, cfg.slot);
-      const packed = packPart({
-        positions: placed.positions,
-        normals: placed.normals,
+      geo = { positions: packed0.positions, indices: packed0.indices };
+      parts.push({
+        row,
+        style,
+        positions: geo.positions,
         indices: geo.indices,
+        normals: computeNormals(geo.positions, geo.indices),
       });
-      const id = `${role}_${variants.length}`;
+    }
+    if (!parts.length) continue;
+
+    // SATU transform bersama untuk seluruh set.
+    const { centre, scale } = setTransform(parts);
+    const outParts = [];
+    for (let i = 0; i < parts.length; i++) {
+      const p = parts[i];
+      const id = `${set.id}_${i}`;
+      const packed = packPart({
+        positions: applyTransform(p.positions, centre, scale),
+        normals: p.normals,
+        indices: p.indices,
+      });
       await writeFile(path.join(OUT, `${id}.wglb`), packed);
-      variants.push({
+      outParts.push({
         id,
-        role,
-        set: cand.set,
-        name: cand.name,
-        category: cand.category,
+        role: p.style.role,
+        name: p.row.name,
+        category: p.row.category,
         file: `assets/3d/prepared/${id}.wglb`,
         bytes: packed.byteLength,
-        tris: geo.indices.length / 3,
-        verts: geo.positions.length / 3,
-        color: cfg.color,
+        tris: p.indices.length / 3,
+        verts: p.positions.length / 3,
+        color: p.style.color,
       });
       console.log(
-        `${id.padEnd(8)} ${String(geo.indices.length / 3).padStart(6)} tris ` +
-          `${String(geo.positions.length / 3).padStart(6)} verts ` +
-          `${String(packed.byteLength).padStart(7)} B  ${cand.name.slice(0, 40)}`,
+        `${id.padEnd(12)} ${String(p.indices.length / 3).padStart(6)} tris ` +
+          `${String(packed.byteLength).padStart(7)} B  ${p.row.name.slice(0, 42)}`,
       );
     }
-    catalog.roles[role] = variants;
+    catalog.sets.push({
+      id: set.id,
+      name: setName ?? set.id,
+      parts: outParts,
+    });
   }
 
   await writeFile(path.join(OUT, 'catalog.json'), JSON.stringify(catalog, null, 2));
-  const all = Object.values(catalog.roles).flat();
+  const all = catalog.sets.flatMap((s) => s.parts);
   console.log(
-    `total: ${all.reduce((s, p) => s + p.tris, 0)} tris, ` +
+    `sets: ${catalog.sets.length}, parts: ${all.length}, ` +
+      `total: ${all.reduce((s, p) => s + p.tris, 0)} tris, ` +
       `${(all.reduce((s, p) => s + p.bytes, 0) / 1e6).toFixed(2)} MB`,
   );
 }
