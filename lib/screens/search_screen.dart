@@ -1,10 +1,15 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
 import 'package:worthbang/services/core/api_exception.dart';
 import 'package:worthbang/services/core/api_result.dart';
+import 'package:worthbang/services/data/local_catalog.dart';
+import 'package:worthbang/services/features/personalization/personalization_engine.dart';
 import 'package:worthbang/utils/rupiah.dart';
 import 'package:worthbang/l10n/strings.dart';
 import 'package:worthbang/models/price_check_models.dart';
@@ -48,10 +53,28 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
           .search(mode: _mode, query: queryText);
       if (!mounted) return;
       setState(() => _state = ApiSuccess(comparisons));
+      _recordSearch(queryText);
     } catch (e) {
       final message = e is ApiException ? e.message : e.toString();
       if (!mounted) return;
       setState(() => _state = ApiError(message));
+    }
+  }
+
+  /// Catat event pencarian untuk personalisasi (best-effort, tidak
+  /// pernah mengganggu alur pencarian).
+  Future<void> _recordSearch(String queryText) async {
+    try {
+      final engine =
+          PersonalizationEngine(await SharedPreferences.getInstance());
+      await engine.record(UserEvent(
+        type: UserEventType.search,
+        category: _mode,
+        query: queryText,
+        at: DateTime.now(),
+      ));
+    } catch (_) {
+      // Telemetri personalisasi gagal = diam saja.
     }
   }
 
@@ -118,6 +141,10 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                 ),
               ],
             ),
+            if (state == null) ...[
+              const SizedBox(height: MonexSpacing.sectionGap),
+              const _ForYouSection(),
+            ],
             if (state is ApiLoading)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 40),
@@ -255,6 +282,123 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Section 'Buat Kamu': etalase awal menu Cari — 20 produk teratas
+/// hasil rank() personalisasi lokal atas seluruh katalog bundel.
+/// Ketuk kartu = event viewDetail.
+class _ForYouSection extends StatefulWidget {
+  const _ForYouSection();
+
+  @override
+  State<_ForYouSection> createState() => _ForYouSectionState();
+}
+
+class _ForYouSectionState extends State<_ForYouSection> {
+  List<ScoredProduct>? _top;
+  Map<String, String> _categoryOf = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final engine =
+        PersonalizationEngine(await SharedPreferences.getInstance());
+    final items = await LocalCatalog.allItems();
+    final ranked = engine.rank(items);
+    final byCategory = await LocalCatalog.load();
+    final categoryOf = <String, String>{};
+    byCategory.forEach((category, list) {
+      for (final item in list) {
+        categoryOf.putIfAbsent(item.model, () => category);
+      }
+    });
+    // Urutan etalase = acak terbobot di kelompok skor atas (mesin
+    // showcase); skor & alasan tetap diambil dari rank().
+    final byModel = {for (final s in ranked) s.item.model: s};
+    final order = engine.showcase(
+      items,
+      limit: 20,
+      rng: Random(DateTime.now().millisecondsSinceEpoch),
+    );
+    final top = order
+        .map((it) => byModel[it.model])
+        .whereType<ScoredProduct>()
+        .toList();
+    if (!mounted) return;
+    setState(() {
+      _top = top;
+      _categoryOf = categoryOf;
+    });
+  }
+
+  Future<void> _recordView(ScoredProduct product) async {
+    try {
+      final engine =
+          PersonalizationEngine(await SharedPreferences.getInstance());
+      await engine.record(UserEvent(
+        type: UserEventType.viewDetail,
+        category: _categoryOf[product.item.model],
+        productName: product.item.model,
+        price: product.item.price,
+        at: DateTime.now(),
+      ));
+    } catch (_) {
+      // Telemetri personalisasi gagal = diam saja.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final top = _top;
+    if (top == null || top.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(AppStrings.showcaseTitle, style: theme.textTheme.titleMedium),
+        const SizedBox(height: 2),
+        Text(AppStrings.showcaseSubtitle, style: theme.textTheme.bodySmall),
+        const SizedBox(height: 12),
+        for (final product in top)
+          Padding(
+            padding: const EdgeInsets.only(bottom: MonexSpacing.gridGap),
+            child: MonexSurfaceCard(
+              onTap: () => _recordView(product),
+              padding:
+                  const EdgeInsets.all(MonexSpacing.cardPaddingCompact),
+              radius: MonexSpacing.radiusMd,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  MonexTransactionTile(
+                    title: product.item.model,
+                    titleStyle: theme.textTheme.titleSmall,
+                    subtitle: _categoryOf[product.item.model] ?? '',
+                    padding: EdgeInsets.zero,
+                    trailing: Text(
+                      formatRupiah(product.item.price),
+                      style: theme.textTheme.titleSmall,
+                    ),
+                  ),
+                  if (product.reason != null &&
+                      product.reason!.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Chip(
+                      label: Text(product.reason!),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -197,4 +197,17 @@ abstract final class AppStrings {
       'Terkirim $sent riwayat ke server • sisa antrian $rest';
   static const neverSynced = 'Belum pernah disinkronkan';
   static String lastUpdated(String when) => 'Terakhir diperbarui $when';
+
+  // Personalisasi (content-based filtering).
+  static const onboardingTitle = 'Atur Rekomendasi Kamu';
+  static const prefTitle = 'Preferensi Rekomendasi';
+  static const prefNeedLabel = 'Kebutuhan utama';
+  static const prefBudgetLabel = 'Kisaran budget rakitan';
+  static const prefPlatformLabel = 'Platform favorit';
+  static const prefSkipButton = 'Nanti saja';
+  static const prefSaved = 'Preferensi rekomendasi tersimpan.';
+  static const prefProfileSubtitle =
+      'Kebutuhan, budget & platform untuk rekomendasi produk';
+  static const showcaseTitle = 'Buat Kamu';
+  static const showcaseSubtitle = 'Dipilih dari kebiasaan & preferensimu';
 }

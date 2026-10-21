@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
 import 'package:worthbang/utils/rupiah.dart';
 import 'package:worthbang/widgets/verdict_badge.dart';
 import 'package:worthbang/l10n/strings.dart';
+import 'package:worthbang/l10n/dream_strings.dart';
 import 'package:worthbang/services/features/alerts_api.dart';
+import 'package:worthbang/services/features/dream_build_api.dart';
 import 'package:worthbang/services/features/wishlist_api.dart';
+import 'package:worthbang/services/features/personalization/personalization_engine.dart';
 import 'package:worthbang/models/price_check_models.dart';
 
 /// Layar hasil analisis: verdict, skor, rentang wajar, pembanding, alternatif.
@@ -58,6 +62,11 @@ class ResultScreen extends ConsumerWidget {
             icon: const Icon(Icons.notification_add_outlined),
             tooltip: AppStrings.addAlert,
             onPressed: () => _showAlertDialog(context, ref, r),
+          ),
+          IconButton(
+            icon: const Icon(Icons.rocket_launch_outlined),
+            tooltip: DreamStrings.addFromResult,
+            onPressed: () => _showDreamDialog(context, ref, r),
           ),
           const SizedBox(width: 12),
         ],
@@ -242,6 +251,119 @@ class AppThemeVerdictColor {
         Verdict.fair => MonexColors.verdictFair,
         Verdict.bad => MonexColors.verdictBad,
       };
+}
+
+/// Slot Rakitan Impian dari kategori/mode produk hasil analisis.
+String _dreamSlotFor(AnalysisResult r) {
+  final hay = '${r.mode} ${r.query}'.toLowerCase();
+  bool has(List<String> keys) => keys.any(hay.contains);
+  if (has(['gpu', 'vga', 'rtx', 'gtx', 'radeon', 'geforce'])) return 'GPU';
+  if (has(['cpu', 'prosesor', 'processor', 'ryzen'])) return 'CPU';
+  if (has(['motherboard', 'mobo', 'mainboard'])) return 'Motherboard';
+  if (has(['ram', 'memori', 'memory', 'ddr'])) return 'RAM';
+  if (has(['ssd', 'hdd', 'nvme', 'storage', 'harddisk'])) return 'Storage';
+  if (has(['psu', 'power supply'])) return 'PSU';
+  if (has(['casing', 'case'])) return 'Casing';
+  if (has(['cooler', 'pendingin'])) return 'Cooler';
+  if (has(['monitor', 'layar'])) return 'Monitor';
+  return 'Lainnya';
+}
+
+// Event personalisasi (AI-Core): produk masuk Rakitan Impian adalah
+// sinyal terkuat (bobot 5). Kategori sengaja tidak diisi — label slot
+// ("CPU"/"Lainnya") beda kosakata dengan kategori katalog; mesin
+// mendeteksi kategori dari nama produk. Best-effort: kegagalan
+// mencatat tidak boleh mengganggu alur utama.
+Future<void> _recordAddToDreamEvent(String partName, int price) async {
+  try {
+    final engine =
+        PersonalizationEngine(await SharedPreferences.getInstance());
+    await engine.record(UserEvent(
+      type: UserEventType.addToDream,
+      productName: partName,
+      price: price,
+      at: DateTime.now(),
+    ));
+  } catch (_) {
+    // Telemetri personalisasi gagal = diam saja.
+  }
+}
+
+/// Dialog tambah produk hasil analisis ke kartu Rakitan Impian:
+/// pilih kartu yang ada atau buat baru.
+Future<void> _showDreamDialog(
+    BuildContext context, WidgetRef ref, AnalysisResult r) async {
+  final api = ref.read(dreamBuildApiProvider);
+  List<DreamBuild> builds;
+  try {
+    builds = await api.listBuilds();
+  } catch (e) {
+    if (context.mounted) {
+      showMonexToast(context, e.toString(), isError: true);
+    }
+    return;
+  }
+  if (!context.mounted) return;
+  final picked = await showDialog<DreamBuild?>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text(DreamStrings.addFromResultTitle),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final b in builds)
+              ListTile(
+                title: Text(b.name),
+                subtitle: Text(
+                  '${b.isPublished ? DreamStrings.statusPublished : DreamStrings.statusDraft}'
+                  ' • ${DreamStrings.versionLabel} ${b.version}',
+                ),
+                onTap: () => Navigator.of(context).pop(b),
+              ),
+            ListTile(
+              leading: const Icon(Icons.add),
+              title: const Text(DreamStrings.addFromResultNew),
+              onTap: () => Navigator.of(context).pop(null),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+  if (!context.mounted) return;
+  try {
+    final item = DreamBuildItem(
+      slot: _dreamSlotFor(r),
+      partName: r.query,
+      price: r.inputPrice,
+    );
+    final DreamBuild target;
+    if (picked == null) {
+      target = await api.createBuild(r.query);
+      await api.saveDraft(
+        build: target,
+        name: target.name,
+        items: [item],
+      );
+    } else {
+      target = picked;
+      await api.saveDraft(
+        build: target,
+        name: target.name,
+        items: [...target.items, item],
+      );
+    }
+    _recordAddToDreamEvent(r.query, r.inputPrice);
+    if (context.mounted) {
+      showMonexToast(context, DreamStrings.addedToast, isSuccess: true);
+    }
+  } catch (e) {
+    if (context.mounted) {
+      showMonexToast(context, e.toString(), isError: true);
+    }
+  }
 }
 
 /// Dialog buat price alert: input target harga → simpan lokal.

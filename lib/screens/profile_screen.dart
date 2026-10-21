@@ -12,6 +12,7 @@ import 'package:worthbang/services/auth/auth_repository.dart';
 import 'package:worthbang/providers/auth_controller.dart';
 import 'package:worthbang/services/data/sync_queue.dart';
 import 'package:worthbang/services/data/sync_service.dart';
+import 'package:worthbang/screens/onboarding_screen.dart';
 import 'package:worthbang/services/features/profile_api.dart';
 
 /// Tab Profil: foto, nama, pengaturan (biometric/tilt/tema), feedback, logout.
@@ -309,6 +310,16 @@ class _ProfileContentScreenState
                       icon: Icons.dark_mode_outlined,
                     ),
                   ],
+                ),
+              ),
+            ),
+            ListTile(
+              title: const Text(AppStrings.prefTitle),
+              subtitle: const Text(AppStrings.prefProfileSubtitle),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const OnboardingScreen(),
                 ),
               ),
             ),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
@@ -16,6 +17,7 @@ import 'package:worthbang/screens/tools_screen.dart';
 import 'package:worthbang/screens/wishlist_screen.dart';
 import 'package:worthbang/services/data/history_repository.dart';
 import 'package:worthbang/models/price_check_models.dart';
+import 'package:worthbang/services/features/personalization/personalization_engine.dart';
 import 'package:worthbang/services/features/price_check_api.dart';
 import 'result_screen.dart';
 import 'bundle_screen.dart';
@@ -82,6 +84,7 @@ class _PriceCheckScreenState extends ConsumerState<PriceCheckScreen> {
             condition: _condition,
           );
       setState(() => _state = ApiSuccess(result));
+      _recordWorthCheck();
       if (!mounted) return;
       // Simpan ke hash chain, lalu buka layar hasil.
       final block =
@@ -94,6 +97,24 @@ class _PriceCheckScreenState extends ConsumerState<PriceCheckScreen> {
       );
     } catch (e) {
       setState(() => _state = ApiError(e.toString()));
+    }
+  }
+
+  /// Catat event cek worth untuk personalisasi (best-effort,
+  /// fire-and-forget — tidak mengubah alur cek harga).
+  Future<void> _recordWorthCheck() async {
+    try {
+      final engine =
+          PersonalizationEngine(await SharedPreferences.getInstance());
+      await engine.record(UserEvent(
+        type: UserEventType.worthCheck,
+        category: _mode,
+        productName: _query.text.trim(),
+        price: _parsePrice(_price.text),
+        at: DateTime.now(),
+      ));
+    } catch (_) {
+      // Telemetri personalisasi gagal = diam saja.
     }
   }
 
