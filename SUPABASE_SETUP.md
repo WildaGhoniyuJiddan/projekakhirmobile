@@ -77,7 +77,7 @@ folder fungsi.
 ## 6. Uji cepat
 
 1. Jalankan app (langkah 2), login/register.
-2. Buka chat Bang Worth, tanya misalnya "rakit PC gaming 10 juta" —
+2. Buka chat Dodo, tanya misalnya "rakit PC gaming 10 juta" —
    harus dijawab rekomendasi. Tanya di luar topik (mis. resep) —
    harus ditolak sopan.
 

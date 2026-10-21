@@ -1,4 +1,4 @@
-/// Model chatbot Bang Worth (kontrak: B7 POST /api/v1/chat/ask).
+/// Model chatbot Dodo (kontrak: B7 POST /api/v1/chat/ask).
 class ChatMessage {
   const ChatMessage({required this.role, required this.text});
 

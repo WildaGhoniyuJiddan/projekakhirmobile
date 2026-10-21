@@ -10,7 +10,7 @@ import 'package:worthbang/services/features/profile_api.dart';
 import 'package:worthbang/services/features/chat_api.dart';
 import 'package:worthbang/models/chat_models.dart';
 
-/// Layar chat Bang Worth: bubble chat + kartu rakitan (build card)
+/// Layar chat Dodo: bubble chat + kartu rakitan (build card)
 /// bila balasan menyertakan build.
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});

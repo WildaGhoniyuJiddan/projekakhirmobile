@@ -59,7 +59,7 @@ class FakeApiClient implements ApiClient {
     };
   }
 
-  /// Fake chatbot Bang Worth (kontrak B7: {reply, build?}).
+  /// Fake chatbot Dodo (kontrak B7: {reply, build?}).
   Map<String, dynamic> _fakeChatReply(Map<String, dynamic>? body) {
     final msg = (body?['message'] as String? ?? '').toLowerCase();
     final wantsBuild =
@@ -101,7 +101,7 @@ class FakeApiClient implements ApiClient {
     }
     return {
       'reply':
-          'Halo! Aku Bang Worth 🤖. Tanya soal harga komponen PC/laptop, minta rakitan ("rakit PC 8 juta"), atau tanya soal fitur aplikasi ini.',
+          'Halo! Aku Dodo 🤖. Tanya soal harga komponen PC/laptop, minta rakitan ("rakit PC 8 juta"), atau tanya soal fitur aplikasi ini.',
     };
   }
 

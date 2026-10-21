@@ -6,7 +6,7 @@ import 'package:worthbang/services/core/api_exception.dart';
 
 final chatApiProvider = Provider<ChatApi>((ref) => ChatApi());
 
-/// API chatbot Bang Worth — lewat Edge Function Supabase `bang-worth`.
+/// API chatbot Dodo — lewat Edge Function Supabase `bang-worth`.
 ///
 /// Gemini dipanggil server-side di fungsi itu; API key tidak pernah
 /// masuk APK dan fungsi menolak request tanpa JWT user yang login.
@@ -28,13 +28,13 @@ class ChatApi {
       if (data is Map) {
         return ChatReply.fromJson(Map<String, dynamic>.from(data));
       }
-      throw const ApiException('Respons Bang Worth tidak valid.');
+      throw const ApiException('Respons Dodo tidak valid.');
     } on FunctionException catch (e) {
       throw ApiException(_functionErrorMessage(e), e.status);
     } catch (e) {
       if (e is ApiException) rethrow;
       throw const ApiException(
-        'Tidak dapat terhubung ke Bang Worth. Periksa koneksi lalu coba lagi.',
+        'Tidak dapat terhubung ke Dodo. Periksa koneksi lalu coba lagi.',
       );
     }
   }
@@ -46,6 +46,6 @@ class ChatApi {
       return details['error'] as String;
     }
     if (e.status == 401) return 'Sesi berakhir. Silakan login lagi.';
-    return 'Bang Worth sedang bermasalah. Coba lagi nanti.';
+    return 'Dodo sedang bermasalah. Coba lagi nanti.';
   }
 }
