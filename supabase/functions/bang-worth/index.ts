@@ -168,18 +168,29 @@ const CLARIFY_MARKER = "biar rakitannya pas sama selera kamu";
 const CLARIFY_REPLY =
   "Siap, biar rakitannya pas sama selera kamu, jawab dua hal ini " +
   "dulu ya:\n" +
-  "1) Platform: AMD, Intel, atau Mix aja (best value)?\n" +
+  "1) Platform: AMD AM4 (RAM DDR4 lebih murah, sisa budget lebih " +
+  "besar buat GPU), AMD AM5 (lebih baru, tapi RAM DDR5-nya mahal), " +
+  "Intel, atau Mix aja (best value)?\n" +
   "2) Buat apa utamanya: gaming, kerja/kantor, atau editing/streaming?\n" +
   "Balas singkat kayak \"amd, gaming\" juga cukup 👍";
 
-type BrandPref = "amd" | "intel" | "mix";
+type BrandPref = "amd_am4" | "amd_am5" | "amd" | "intel" | "mix";
 
 function detectBrandPref(text: string): BrandPref | null {
+  // Sinyal platform spesifik: "AM4"/"DDR4"/seri Ryzen 3xxx-5xxx ->
+  // AM4; "AM5"/"DDR5"/seri Ryzen 7xxx-9xxx -> AM5. Preferensi
+  // spesifik ini menang atas sinyal AMD generik di bawahnya.
+  const hasAm4 = /\bam4\b|\bddr4\b|\bryzen\s*[3579]\s*[345]\d{3}/i
+    .test(text);
+  const hasAm5 = /\bam5\b|\bddr5\b|\bryzen\s*[579]\s*[789]\d{3}/i
+    .test(text);
   const hasAmd = /\b(amd|ryzen)\b/i.test(text);
   const hasIntel = /\b(intel|core\s?i[3579]|core\s?ultra|pentium)\b/i
     .test(text);
   const hasMix = /\b(mix|campur\w*|bebas|terserah|mana\s?(aja|saja)|value|best\s?value|value\s?for\s?money|paling\s?worth|sesuai\s?budget)\b/i
     .test(text);
+  if (hasAm4 && !hasAm5) return "amd_am4";
+  if (hasAm5 && !hasAm4) return "amd_am5";
   if (hasAmd && hasIntel) return "mix";
   if (hasAmd) return "amd";
   if (hasIntel) return "intel";
@@ -296,6 +307,53 @@ function ddrOf(name: string): string | null {
 /// sebagai RAM desktop). Satu helper untuk semua titik deteksi.
 function isSodimm(name: string): boolean {
   return /\b(so-?dim+m?|sod+im+m?|leptop)\b/i.test(name);
+}
+
+/// Kapasitas RAM (GB) dari nama produk: pola kit "2x8GB" dihitung
+/// perkalian keping, selain itu angka GB pertama. null bila tak ada.
+function extractRamGb(model: string): number | null {
+  const kit = model.match(/(\d+)\s*x\s*(\d+)\s*gb/i);
+  if (kit) return parseInt(kit[1], 10) * parseInt(kit[2], 10);
+  const single = model.match(/(\d+)\s*gb/i);
+  return single ? parseInt(single[1], 10) : null;
+}
+
+/// Lantai harga anti-scrape-basi (audit forensik 2026-10-21): item
+/// MARKET di bawah ambang ini hampir pasti harga varian terendah /
+/// data basi, bukan harga unit yang tertulis di judul. Item RETAIL
+/// (file Dan) adalah kebenaran dasar dan TIDAK PERNAH disensor
+/// lantai ini — ambang yang sama terbukti membunuh item retail sah.
+function isInvalidScrapePrice(
+  category: string,
+  model: string,
+  price: number,
+  src: unknown,
+): boolean {
+  if (src === "retail") return false;
+  if (category === "ram") {
+    const gb = extractRamGb(model);
+    if (gb === null) return false;
+    const ddr = ddrOf(model);
+    if (ddr === "DDR5") {
+      if (gb >= 32 && price < 5_500_000) return true;
+      if (gb >= 16 && price < 2_850_000) return true;
+      if (gb <= 8 && price < 1_700_000) return true;
+    } else if (ddr === "DDR4") {
+      if (gb >= 32 && price < 3_400_000) return true;
+      if (gb >= 16 && price < 1_700_000) return true;
+      if (gb <= 8 && price < 850_000) return true;
+    }
+    return false;
+  }
+  if (category === "storage") {
+    if (/\b(1tb|1000gb|1024gb)\b/i.test(model) && price < 1_750_000) {
+      return true;
+    }
+    if (/\b(480gb|500gb|512gb)\b/i.test(model) && price < 900_000) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /// Masalah HARD = build menyesatkan secara faktual (platform tidak
@@ -591,6 +649,47 @@ function catalogContext(
       // Guard polusi (lihat LAPTOP_LINE_COMPONENT_RE): item yang
       // gugur di sini juga tidak masuk peta grounding `allowed`.
       if (isLaptopLineInComponent(key, model)) continue;
+      // --- Saringan forensik harga & spek rakitan (audit
+      // 2026-10-21). Item yang gugur di blok ini tidak masuk konteks
+      // maupun peta grounding `allowed`.
+      // (a) Baris "(generik)" = patokan kanonik, bukan produk toko.
+      if (/\(generik\)/i.test(model)) continue;
+      // (b) Harga scrape basi/varian (market saja; retail kebal).
+      if (isInvalidScrapePrice(key, model, price, it["src"])) continue;
+      // (c) Part bekas tidak dipakai menyusun rakitan (RAM, storage,
+      // motherboard) — rawan dan harganya rancu. GPU & CPU bekas
+      // tetap boleh: di segmen value justru di sana barangnya.
+      if (
+        (key === "ram" || key === "storage" || key === "motherboard") &&
+        /\(bekas\)|\b(second|2nd|bekas|copotan)\b/i.test(model)
+      ) continue;
+      // (d) Budget >= 5,5jt wajib RAM 16GB; budget < 16jt dikunci di
+      // 16GB — keping 8GB bikin rakitan pincang, 32GB+ memakan
+      // porsi yang seharusnya untuk GPU.
+      if (key === "ram" && budget !== null && budget >= 5_500_000) {
+        const gb = extractRamGb(model);
+        if (gb === null || gb < 16) continue;
+        if (budget < 16_000_000 && gb > 16) continue;
+      }
+      // (e) Motherboard anti-overkill untuk budget <= 12jt: porsi
+      // mobo dibatasi persen budget (AM5 sedikit longgar — harga
+      // dasar platformnya memang lebih tinggi).
+      if (key === "motherboard" && budget !== null && budget <= 12_000_000) {
+        const moboCap = socketOf(model) === "AM5"
+          ? Math.min(budget * 0.18, 1_880_000)
+          : Math.min(budget * 0.13, 1_400_000);
+        if (price > moboCap) continue;
+      }
+      // (f) SSD value untuk budget 6-12,5jt: fokus 512GB-1TB NVMe di
+      // bawah 2,15jt; kapasitas kecil dan harga di atas itu sama-sama
+      // mengganggu alokasi.
+      if (
+        key === "storage" && budget !== null &&
+        budget >= 6_000_000 && budget <= 12_500_000
+      ) {
+        if (/\b(128gb|250gb|256gb)\b/i.test(model)) continue;
+        if (price > 2_150_000) continue;
+      }
       const normName = sq(model);
       if (!allowed.has(normName)) allowed.set(normName, price);
       const dedupeKey = model.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -667,9 +766,14 @@ function catalogContext(
     LGA1155: 1,
   };
   // Semesta socket dibatasi preferensi brand dari klarifikasi:
-  // AMD hanya AM4/AM5, Intel hanya keluarga LGA, Mix = semua.
+  // AMD generik AM4/AM5, AMD spesifik satu socket saja, Intel hanya
+  // keluarga LGA, Mix = semua.
   const socketUniverse = brand === "amd"
     ? ["AM5", "AM4"]
+    : brand === "amd_am4"
+    ? ["AM4"]
+    : brand === "amd_am5"
+    ? ["AM5"]
     : brand === "intel"
     ? ["LGA1851", "LGA1700", "LGA1200", "LGA1150", "LGA1151", "LGA1155"]
     : Object.keys(GEN_ORDER);
@@ -762,12 +866,14 @@ function catalogContext(
     const scored = byCategory.get(key);
     if (!scored || scored.length === 0) continue;
     {
-    // Pilihan per kategori = TANGGA HARGA, bukan top-5 termahal: ambil
-    // dulu yang disebut user (overlap tertinggi, maks 2), lalu isi sisa
-    // slot dengan barang termahal di bawah anak tangga budget
-    // (45/30/20/12/6%) supaya model bisa menyusun total 70-100% budget
-    // dari kombinasi realistis. Top-5 termahal saja membuat tiap
-    // komponen memakan seluruh budget sendiri-sendiri.
+    // Pilihan per kategori: ambil dulu yang disebut user (overlap
+    // tertinggi, maks 2), lalu isi sisa slot dengan strategi per
+    // peran komponen. Komponen pendukung (RAM/motherboard/storage)
+    // spek minimalnya sudah ditegakkan saringan kandidat, jadi di
+    // sini dipilih yang paling VALUE (dual channel / NVMe dulu, lalu
+    // termurah) supaya sisa budget maksimal untuk CPU & GPU. CPU &
+    // GPU memakai tangga alokasi budget dan di tiap anak tangga
+    // dipilih skor konsensus tertinggi, bukan harga tertinggi.
     scored.sort((a, b) =>
       (b.overlap - a.overlap) ||
       (Number(b.retail) - Number(a.retail)) ||
@@ -781,17 +887,59 @@ function catalogContext(
       picked.push(p);
     };
     for (const p of scored.filter((s) => s.overlap > 0).slice(0, 2)) take(p);
-    const ladder = budget !== null
-      ? [0.45, 0.3, 0.2, 0.12, 0.06].map((f) => Math.floor(budget * f))
-      : [0.85, 0.65, 0.45, 0.25, 0.1].map((f) => {
-        const prices = scored.map((s) => s.price).sort((a, b) => a - b);
-        return prices[Math.floor(f * (prices.length - 1))] ?? 0;
+    if (key === "ram" || key === "motherboard" || key === "storage") {
+      const valueSorted = [...scored].sort((a, b) => {
+        if (key === "ram") {
+          const dual = (m: string) =>
+            /\b2\s*x\s*8\s*gb\b/i.test(m) ? 0 : 1;
+          return (dual(a.model) - dual(b.model)) || (a.price - b.price);
+        }
+        if (key === "storage") {
+          const nvme = (m: string) => /\b(nvme|pcie)\b/i.test(m) ? 0 : 1;
+          return (nvme(a.model) - nvme(b.model)) || (a.price - b.price);
+        }
+        return a.price - b.price;
       });
-    for (const cap of ladder) {
-      const under = scored
-        .filter((s) => s.price <= cap && !pickedLines.has(s.line))
-        .sort((a, b) => b.price - a.price)[0];
-      if (under) take(under);
+      for (const p of valueSorted) take(p);
+    } else {
+      const ratios = key === "gpu"
+        ? [0.46, 0.4, 0.35, 0.3, 0.25]
+        : key === "cpu"
+        ? [0.24, 0.2, 0.17, 0.14, 0.11]
+        : [0.45, 0.3, 0.2, 0.12, 0.06];
+      const ladder = budget !== null
+        ? ratios.map((f) => Math.floor(budget * f))
+        : [0.85, 0.65, 0.45, 0.25, 0.1].map((f) => {
+          const prices = scored.map((s) => s.price).sort((a, b) => a - b);
+          return prices[Math.floor(f * (prices.length - 1))] ?? 0;
+        });
+      // Skor konsensus dihitung SEKALI per kandidat ke Map lokal
+      // (hanya kandidat di bawah cap terbesar) — TIDAK di dalam
+      // comparator sortir. Comparator memanggil fungsi berulang
+      // tanpa kendali, dan panggilan konsensus massal pernah
+      // membunuh worker dengan WORKER_RESOURCE_LIMIT.
+      let scoreOf: Map<(typeof scored)[number], number> | null = null;
+      if (key === "gpu" || key === "cpu") {
+        const maxCap = Math.max(...ladder);
+        scoreOf = new Map();
+        for (const s of scored) {
+          if (s.price <= maxCap) {
+            scoreOf.set(
+              s,
+              consensusLookup(s.model, key)?.consensus_score ?? 0,
+            );
+          }
+        }
+      }
+      for (const cap of ladder) {
+        const under = scored
+          .filter((s) => s.price <= cap && !pickedLines.has(s.line))
+          .sort((a, b) => scoreOf
+            ? (scoreOf.get(b) ?? 0) - (scoreOf.get(a) ?? 0) ||
+              (b.price - a.price)
+            : (b.price - a.price))[0];
+        if (under) take(under);
+      }
     }
     // Slot masih kosong (katalog kategori kecil) -> isi dari yang tersisa.
     for (const p of scored) take(p);
@@ -1179,7 +1327,11 @@ serve(async (req: Request) => {
   const historyLines = history.slice(-10).map((m) =>
     `${String(m.role ?? "")}: ${String(m.text ?? "")}`
   ).join("\n");
-  const prefLine = brandPref === "amd"
+  const prefLine = brandPref === "amd_am4"
+    ? "Preferensi platform user: AMD AM4 (DDR4) — konteks sudah disaring ke AM4.\n"
+    : brandPref === "amd_am5"
+    ? "Preferensi platform user: AMD AM5 (DDR5) — konteks sudah disaring ke AM5.\n"
+    : brandPref === "amd"
     ? "Preferensi platform user: AMD (Ryzen) — konteks sudah disaring ke platform AMD.\n"
     : brandPref === "intel"
     ? "Preferensi platform user: Intel — konteks sudah disaring ke platform Intel.\n"
