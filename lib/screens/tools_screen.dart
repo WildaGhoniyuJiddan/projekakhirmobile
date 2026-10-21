@@ -7,7 +7,8 @@ import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
 import 'package:worthbang/services/features/currency_api.dart';
 
-/// Layar Konverter: mata uang (kurs server) + zona waktu WIB/WITA/WIT/UTC.
+/// Layar Konverter: mata uang (kurs server) + zona waktu
+/// WIB/WITA/WIT/London/UTC.
 class ToolsScreen extends ConsumerStatefulWidget {
   const ToolsScreen({super.key});
 
@@ -179,6 +180,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
                 Expanded(
                   child: DropdownButtonFormField<WibZone>(
                     initialValue: _from,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                         labelText: AppStrings.fromLabel),
                     items: WibZone.values
@@ -196,6 +198,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
                 Expanded(
                   child: DropdownButtonFormField<WibZone>(
                     initialValue: _to,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                         labelText: AppStrings.toLabel),
                     items: WibZone.values

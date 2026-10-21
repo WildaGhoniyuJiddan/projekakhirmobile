@@ -61,5 +61,37 @@ void main() {
       final dt = DateTime(2026, 9, 29, 7, 0);
       expect(convertTimezone(dt, WibZone.wib, WibZone.wib), dt);
     });
+
+    test('WIB → London musim panas (−6 jam, BST)', () {
+      final dt = DateTime(2026, 7, 15, 19, 0);
+      final out = convertTimezone(dt, WibZone.wib, WibZone.london);
+      expect(out, DateTime(2026, 7, 15, 13, 0));
+    });
+
+    test('WIB → London musim dingin (−7 jam)', () {
+      final dt = DateTime(2026, 1, 15, 19, 0);
+      final out = convertTimezone(dt, WibZone.wib, WibZone.london);
+      expect(out, DateTime(2026, 1, 15, 12, 0));
+    });
+  });
+
+  group('londonOffsetHours (aturan BST)', () {
+    test('musim dingin: 15 Jan 2026 → +0', () {
+      expect(londonOffsetHours(DateTime.utc(2026, 1, 15, 12)), 0);
+    });
+
+    test('musim panas: 15 Jul 2026 → +1', () {
+      expect(londonOffsetHours(DateTime.utc(2026, 7, 15, 12)), 1);
+    });
+
+    test('batas awal BST: Minggu terakhir Maret 01:00 UTC', () {
+      expect(londonOffsetHours(DateTime.utc(2026, 3, 29, 0)), 0);
+      expect(londonOffsetHours(DateTime.utc(2026, 3, 29, 1)), 1);
+    });
+
+    test('batas akhir BST: Minggu terakhir Oktober 01:00 UTC', () {
+      expect(londonOffsetHours(DateTime.utc(2026, 10, 25, 0)), 1);
+      expect(londonOffsetHours(DateTime.utc(2026, 10, 25, 1)), 0);
+    });
   });
 }

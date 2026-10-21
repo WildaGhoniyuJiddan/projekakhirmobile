@@ -174,11 +174,19 @@ abstract final class AppStrings {
   static const tiltSetting = 'Efek 3D kartu (gyroscope)';
   static const tiltSubtitle = 'Kartu miring mengikuti gerakan HP';
   static const themeSetting = 'Tema';
-  static const feedbackSection = 'Kirim Feedback';
+  static const feedbackSection =
+      'Saran dan Kesan Mata Kuliah Pemrograman Aplikasi Mobile';
   static const kesanLabel = 'Kesan';
+  static const kesanHint =
+      'Ceritakan kesanmu selama mengikuti mata kuliah ini';
   static const saranLabel = 'Saran';
-  static const sendFeedbackButton = 'Kirim Feedback';
-  static const feedbackSent = 'Terima kasih atas feedback-nya!';
+  static const saranHint =
+      'Tuliskan saranmu untuk mata kuliah ini ke depannya';
+  static const sendFeedbackButton = 'Kirim Saran dan Kesan';
+  static const feedbackSent =
+      'Terima kasih, saran dan kesanmu sudah tersimpan.';
+  static const feedbackHistorySection = 'Riwayat Saran dan Kesan';
+  static const feedbackEmpty = 'Belum ada saran dan kesan tersimpan.';
   static const photoUpdated = 'Foto profil diperbarui.';
   static const editNameTitle = 'Ubah Nama';
   static const logoutTitle = 'Keluar';

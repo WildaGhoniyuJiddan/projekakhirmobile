@@ -34,10 +34,12 @@ class _ProfileContentScreenState
   bool _bioAvailable = false;
   bool _bioEnabled = false;
   String? _localPhotoPath;
+  late Future<List<Map<String, dynamic>>> _feedbackHistory;
 
   @override
   void initState() {
     super.initState();
+    _feedbackHistory = ref.read(profileApiProvider).feedbackHistory();
     _loadBio();
     _restorePhoto();
   }
@@ -140,6 +142,9 @@ class _ProfileContentScreenState
       if (!mounted) return;
       _kesan.clear();
       _saran.clear();
+      setState(() {
+        _feedbackHistory = ref.read(profileApiProvider).feedbackHistory();
+      });
       showMonexToast(context, AppStrings.feedbackSent, isSuccess: true);
     } catch (e) {
       if (mounted) {
@@ -148,6 +153,54 @@ class _ProfileContentScreenState
     } finally {
       if (mounted) setState(() => _sendingFeedback = false);
     }
+  }
+
+  /// Satu entri riwayat saran & kesan tersimpan (rating, tanggal, isi).
+  Widget _feedbackEntry(BuildContext context, Map<String, dynamic> e) {
+    final theme = Theme.of(context);
+    final rating = (e['rating'] as num?)?.toInt() ?? 0;
+    final kesan = (e['kesan'] as String?)?.trim() ?? '';
+    final saran = (e['saran'] as String?)?.trim() ?? '';
+    final at = DateTime.tryParse(e['at'] as String? ?? '');
+    String two(int v) => v.toString().padLeft(2, '0');
+    final dateText = at == null
+        ? ''
+        : '${two(at.day)}/${two(at.month)}/${at.year} ${two(at.hour)}:${two(at.minute)}';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.dividerColor),
+        borderRadius: BorderRadius.circular(MonexSpacing.radiusMd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              for (var i = 0; i < 5; i++)
+                Icon(
+                  i < rating ? Icons.star : Icons.star_border,
+                  size: 14,
+                  color: MonexColors.verdictFair,
+                ),
+              const Spacer(),
+              Text(dateText, style: theme.textTheme.bodySmall),
+            ],
+          ),
+          if (kesan.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text('${AppStrings.kesanLabel}: $kesan',
+                style: theme.textTheme.bodyMedium),
+          ],
+          if (saran.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text('${AppStrings.saranLabel}: $saran',
+                style: theme.textTheme.bodyMedium),
+          ],
+        ],
+      ),
+    );
   }
 
   Future<void> _logout() async {
@@ -344,6 +397,7 @@ class _ProfileContentScreenState
               controller: _kesan,
               decoration: const InputDecoration(
                 labelText: AppStrings.kesanLabel,
+                hintText: AppStrings.kesanHint,
                 border: OutlineInputBorder(),
               ),
               maxLines: 2,
@@ -353,6 +407,7 @@ class _ProfileContentScreenState
               controller: _saran,
               decoration: const InputDecoration(
                 labelText: AppStrings.saranLabel,
+                hintText: AppStrings.saranHint,
                 border: OutlineInputBorder(),
               ),
               maxLines: 2,
@@ -364,6 +419,35 @@ class _ProfileContentScreenState
               icon: Icons.send_outlined,
               label: AppStrings.sendFeedbackButton,
               loading: _sendingFeedback,
+            ),
+            const SizedBox(height: 16),
+            Text(AppStrings.feedbackHistorySection,
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            FutureBuilder<List<Map<String, dynamic>>>(
+              future: _feedbackHistory,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const SizedBox.shrink();
+                }
+                final items =
+                    (snap.data ?? const <Map<String, dynamic>>[])
+                        .reversed
+                        .toList();
+                if (items.isEmpty) {
+                  return Text(AppStrings.feedbackEmpty,
+                      style: Theme.of(context).textTheme.bodySmall);
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final e in items) ...[
+                      _feedbackEntry(context, e),
+                      const SizedBox(height: 8),
+                    ],
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 8),
             Consumer(

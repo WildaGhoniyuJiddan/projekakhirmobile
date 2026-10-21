@@ -12,6 +12,7 @@ import 'package:worthbang/services/data/local_catalog.dart';
 import 'package:worthbang/services/data/products_catalog.dart';
 import 'package:worthbang/services/features/personalization/personalization_engine.dart';
 import 'package:worthbang/utils/rupiah.dart';
+import 'package:worthbang/widgets/price_conversion_card.dart';
 import 'package:worthbang/l10n/strings.dart';
 import 'package:worthbang/models/price_check_models.dart';
 import 'package:worthbang/screens/onboarding_screen.dart';
@@ -416,13 +417,50 @@ class _ForYouSectionState extends State<_ForYouSection> {
       // Telemetri personalisasi gagal = diam saja.
     }
     if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => PriceCheckScreen(
-          initialQuery: product.name,
-          initialMode: product.category == 'laptop' ? 'laptop' : 'pc',
-        ),
-      ),
+    // Lembar detail produk: harga IDR + kartu konversi, lalu tombol
+    // lanjut ke alur Cek Harga yang sudah ada.
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              MonexSpacing.screenPaddingH,
+              4,
+              MonexSpacing.screenPaddingH,
+              24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(product.name, style: theme.textTheme.titleMedium),
+                const SizedBox(height: 12),
+                PriceConversionCard(priceIdr: product.price),
+                const SizedBox(height: 12),
+                MonexPrimaryButton(
+                  label: AppStrings.priceCheckTitle,
+                  icon: Icons.price_check,
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => PriceCheckScreen(
+                          initialQuery: product.name,
+                          initialMode:
+                              product.category == 'laptop' ? 'laptop' : 'pc',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
 import 'package:worthbang/utils/rupiah.dart';
+import 'package:worthbang/widgets/price_conversion_card.dart';
 import 'package:worthbang/widgets/verdict_badge.dart';
 import 'package:worthbang/l10n/strings.dart';
 import 'package:worthbang/l10n/dream_strings.dart';
@@ -125,6 +126,8 @@ class ResultScreen extends ConsumerWidget {
               ],
             ),
           ),
+          const SizedBox(height: MonexSpacing.sectionGap),
+          PriceConversionCard(priceIdr: r.inputPrice),
           if (r.recommendation != null) ...[
             const SizedBox(height: MonexSpacing.sectionGap),
             MonexSurfaceCard(
