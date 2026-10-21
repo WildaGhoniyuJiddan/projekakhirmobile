@@ -145,6 +145,97 @@ function isQuestionOrRequest(message: string): boolean {
   return REQUEST_RE.test(message);
 }
 
+// ---------------------------------------------------------------------------
+// Klarifikasi preferensi rakitan (permintaan Dan 2026-10-21): sebelum
+// menyusun rakitan, Bang Worth bertanya dulu — platform AMD / Intel /
+// Mix (best value) + peruntukan — karena sebagian user fanatik brand
+// tertentu dan sebagian mengejar value for money. Jawaban user dipakai
+// untuk menyaring platform konteks dan mengarahkan pemilihan berbasis
+// skor benchmark konsensus. State disimpan di riwayat chat (balon
+// klarifikasi dikenali dari CLARIFY_MARKER), tanpa ubah aplikasi.
+// ---------------------------------------------------------------------------
+const CLARIFY_MARKER = "biar rakitannya pas sama selera kamu";
+const CLARIFY_REPLY =
+  "Siap, biar rakitannya pas sama selera kamu, jawab dua hal ini " +
+  "dulu ya:\n" +
+  "1) Platform: AMD, Intel, atau Mix aja (best value)?\n" +
+  "2) Buat apa utamanya: gaming, kerja/kantor, atau editing/streaming?\n" +
+  "Balas singkat kayak \"amd, gaming\" juga cukup 👍";
+
+type BrandPref = "amd" | "intel" | "mix";
+
+function detectBrandPref(text: string): BrandPref | null {
+  const hasAmd = /\b(amd|ryzen)\b/i.test(text);
+  const hasIntel = /\b(intel|core\s?i[3579]|core\s?ultra|pentium)\b/i
+    .test(text);
+  const hasMix = /\b(mix|campur\w*|bebas|terserah|mana\s?(aja|saja)|value|best\s?value|value\s?for\s?money|paling\s?worth|sesuai\s?budget)\b/i
+    .test(text);
+  if (hasAmd && hasIntel) return "mix";
+  if (hasAmd) return "amd";
+  if (hasIntel) return "intel";
+  if (hasMix) return "mix";
+  return null;
+}
+
+function isBuildIntent(text: string): boolean {
+  if (/\b(rakit\w*|build|rakitan|bangun pc|paket pc)\b/i.test(text)) {
+    return true;
+  }
+  // "pc gaming budget 5 juta" tanpa kata rakit tetap niat rakitan.
+  return /\b(pc|komputer)\b/i.test(text) &&
+    extractBudgetIdr(text) !== null;
+}
+
+/// Jalur cepat pertanyaan harga produk spesifik — dijawab DETERMINISTIK
+/// dari katalog, tanpa Gemini. Model terbukti berulang kali
+/// menghalusinasi "budget" dari angka nama produk (RTX 5070 -> "budget
+/// 5070") pada pertanyaan harga sederhana; untuk pertanyaan faktual
+/// murni, jawaban terprogram selalu benar dan hemat kuota. Pertanyaan
+/// penilaian (worth it / mending) TIDAK lewat sini — itu ranah Gemini.
+function priceLookupReply(message: string): string | null {
+  if (!/(harga|berapa|price)/i.test(message)) return null;
+  if (/(worth|mending|layak|bagus|rekomendasi|banding)/i.test(message)) {
+    return null;
+  }
+  const STOP = new Set([
+    "harga", "berapa", "harganya", "ada", "nggak", "enggak", "bang",
+    "daftar", "cek", "dong", "kak", "min", "yang", "untuk", "dengan",
+  ]);
+  // Token >= 2 huruf: pembeda seri justru 2 huruf (Ti, XT, RX) —
+  // filter >2 huruf versi konteks membuangnya dan 5070 polos ikut
+  // tercantum saat user menanya 5070 Ti.
+  const tokens = (message.toLowerCase().match(/[a-z0-9]+/g) ?? [])
+    .filter((t) => t.length >= 2 && !STOP.has(t));
+  if (!tokens.some((t) => /\d/.test(t))) return null; // wajib ada token model
+  const cat = catalog as unknown as Record<string, unknown>;
+  type Hit = { name: string; price: number; overlap: number };
+  const hits: Hit[] = [];
+  for (const key of ["gpu", "cpu", "motherboard", "ram", "storage", "laptop"]) {
+    const items = cat[key];
+    if (!Array.isArray(items)) continue;
+    for (const it of items as Array<Record<string, unknown>>) {
+      const model = String(it["model"] ?? "");
+      const price = it["price"];
+      if (!model || typeof price !== "number" || price <= 0) continue;
+      const mtok = new Set(model.toLowerCase().match(/[a-z0-9]+/g) ?? []);
+      let overlap = 0;
+      for (const t of tokens) if (mtok.has(t)) overlap++;
+      // Minimal 2 token cocok DAN minimal 1 token berdigit (seri model).
+      const digitHit = tokens.some((t) => /\d/.test(t) && mtok.has(t));
+      if (overlap >= 2 && digitHit) hits.push({ name: model, price, overlap });
+    }
+  }
+  if (hits.length === 0) return null;
+  const maxOv = Math.max(...hits.map((h) => h.overlap));
+  const top = hits
+    .filter((h) => h.overlap === maxOv)
+    .sort((a, b) => a.price - b.price)
+    .slice(0, 3);
+  const lines = top.map((h) => `• ${h.name} — Rp${formatRupiah(h.price)}`);
+  return "Ada di daftar nih:\n" + lines.join("\n") +
+    "\nMau kubandingkan dengan seri lain atau dicarikan yang paling worth it?";
+}
+
 /// Validasi deterministik atas build yang disusun model. Model kecil
 /// terbukti tetap melanggar kompatibilitas walau sudah diberi tag
 /// platform + aturan — jadi build dicek di server: socket CPU vs
@@ -215,6 +306,11 @@ function validateBuild(
       hard.push(`RAM ${dRam} tidak cocok dengan motherboard ${dMobo}`);
     }
   }
+  // SODIMM = RAM laptop; model terbukti tetap memilihnya untuk build
+  // desktop walau sudah ditandai — jadikan pelanggaran HARD.
+  if (ram && /so-?dimm/i.test(ram.name)) {
+    hard.push("RAM yang dipilih adalah SODIMM (RAM laptop) — pilih RAM DIMM desktop");
+  }
   if (gpu && budget !== null && gpu.price < budget * 0.05) {
     soft.push(
       "GPU yang dipilih terlalu lemah untuk budget ini — naikkan kelas " +
@@ -228,7 +324,7 @@ function validateBuild(
 /// internal model — jangan bocor ke nama yang ditampilkan di aplikasi.
 function stripContextTags(name: string): string {
   return name
-    .replace(/\s*\[(platform|skor konsensus)[^\]]*\]/gi, "")
+    .replace(/\s*\[(platform|skor konsensus|SODIMM)[^\]]*\]/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -326,11 +422,20 @@ function consensusLookup(
 function catalogContext(
   message: string,
   budget: number | null,
+  brand: BrandPref | null = null,
   perCategory = 5,
 ): string {
+  // Kata generik dibuang dari token relevansi: "gaming"/"laptop" cocok
+  // ke ratusan nama produk dan mengangkat item di luar budget ke
+  // konteks (kasus ROG Strix 36jt untuk budget 12jt).
+  const STOPWORDS = new Set([
+    "laptop", "gaming", "rakit", "rakitan", "budget", "juta", "ribu",
+    "rekomendasi", "harga", "bang", "worth", "komputer", "notebook",
+    "yang", "untuk", "dengan", "dong", "nih", "kok", "sih", "aja",
+  ]);
   const tokens = new Set(
     (message.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((t) =>
-      t.length > 2
+      t.length > 2 && !STOPWORDS.has(t)
     ),
   );
   const cat = catalog as unknown as Record<string, unknown>;
@@ -344,7 +449,7 @@ function catalogContext(
     : 0;
   type Cand = { overlap: number; line: string; price: number; model: string };
   const byCategory = new Map<string, Cand[]>();
-  for (const key of ["cpu", "motherboard", "gpu", "ram", "storage"]) {
+  for (const key of ["cpu", "motherboard", "gpu", "ram", "storage", "laptop", "pc"]) {
     const items = cat[key];
     if (!Array.isArray(items)) continue;
     const scored: Cand[] = [];
@@ -359,6 +464,11 @@ function catalogContext(
       const dedupeKey = model.toLowerCase().replace(/[^a-z0-9]/g, "");
       if (seen.has(dedupeKey)) continue;
       seen.add(dedupeKey);
+      // RAM SODIMM (laptop) dikeluarkan dari konteks RAM sama sekali:
+      // tangga DDR5 katalog didominasi SODIMM dan model kecil terus
+      // memilihnya untuk build desktop sampai validator membuang
+      // seluruh build. Tag + aturan prompt tidak cukup.
+      if (key === "ram" && /so-?dimm/i.test(model)) continue;
       const mtok = new Set(model.toLowerCase().match(/[a-z0-9]+/g) ?? []);
       let overlap = 0;
       for (const t of tokens) if (mtok.has(t)) overlap++;
@@ -398,32 +508,119 @@ function catalogContext(
 
   // KOHERENSI PLATFORM: konteks campuran platform (AM4/AM5/LGA + DDR4/
   // DDR5 dalam satu tangga) terbukti terlalu berat untuk model kecil —
-  // validator menolak mayoritas build. Jadi daftar motherboard & RAM
-  // disaring ke SATU platform jangkar dari CPU terkuat yang relevan:
-  // CPU yang disebut user (overlap tertinggi), else CPU termahal yang
-  // masuk tangga budget. Model tinggal mencocokkan harga.
+  // validator menolak mayoritas build. Jadi CPU/motherboard/RAM
+  // disaring ke SATU platform jangkar yang LAYAK untuk budget user:
+  // - User menyebut CPU spesifik (overlap >= 2) -> platform CPU itu.
+  // - Ada budget -> platform dievaluasi dari biaya masuknya (CPU
+  //   termurah di pita <=40% budget + mobo termurah + RAM termurah
+  //   DDR mayoritasnya). Di antara platform yang biaya masuknya
+  //   <= 50% budget, dipilih generasi TERBARU. (Jangkar "CPU termahal"
+  //   versi lama mengunci budget 5jt ke LGA1700 dan membuang semua
+  //   mobo AM4 dari konteks — kasus yang dilaporkan Dan.)
+  // - Tanpa budget -> CPU relevan/termahal seperti semula.
+  const GEN_ORDER: Record<string, number> = {
+    AM5: 6,
+    LGA1851: 5,
+    LGA1700: 4,
+    AM4: 3,
+    LGA1200: 2,
+    LGA1150: 1,
+    LGA1151: 1,
+    LGA1155: 1,
+  };
+  // Semesta socket dibatasi preferensi brand dari klarifikasi:
+  // AMD hanya AM4/AM5, Intel hanya keluarga LGA, Mix = semua.
+  const socketUniverse = brand === "amd"
+    ? ["AM5", "AM4"]
+    : brand === "intel"
+    ? ["LGA1851", "LGA1700", "LGA1200", "LGA1150", "LGA1151", "LGA1155"]
+    : Object.keys(GEN_ORDER);
   const cpuCands = byCategory.get("cpu") ?? [];
-  const anchor = cpuCands.find((c) => c.overlap > 0 && socketOf(c.model)) ??
-    cpuCands.find((c) => socketOf(c.model));
-  const anchorSocket = anchor ? socketOf(anchor.model) : null;
-  if (anchorSocket) {
-    const mobos = byCategory.get("motherboard") ?? [];
-    const sameSocket = mobos.filter((c) => socketOf(c.model) === anchorSocket);
-    if (sameSocket.length > 0) {
-      byCategory.set("motherboard", sameSocket);
-      const anchorDdr = sameSocket
-        .map((c) => ddrOf(c.model))
-        .find((d) => d !== null);
-      if (anchorDdr) {
-        const rams = byCategory.get("ram") ?? [];
-        const sameDdr = rams.filter((c) => ddrOf(c.model) === anchorDdr);
-        if (sameDdr.length > 0) byCategory.set("ram", sameDdr);
+  const moboCands = byCategory.get("motherboard") ?? [];
+  const ramCands = byCategory.get("ram") ?? [];
+  const majorityDdr = (mobos: Cand[]): string | null => {
+    const counts = new Map<string, number>();
+    for (const m of mobos) {
+      const d = ddrOf(m.model);
+      if (d) counts.set(d, (counts.get(d) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  };
+  let anchorSocket: string | null = null;
+  let anchorDdr: string | null = null;
+  const namedCpu = cpuCands.find((c) => c.overlap >= 2 && socketOf(c.model));
+  if (namedCpu) {
+    anchorSocket = socketOf(namedCpu.model);
+  } else if (budget !== null) {
+    type Plat = { socket: string; entry: number; gen: number; ddr: string | null };
+    const plats: Plat[] = [];
+    for (const socket of socketUniverse) {
+      const cpus = cpuCands.filter((c) =>
+        socketOf(c.model) === socket && c.price <= budget * 0.4
+      );
+      const mobos = moboCands.filter((c) => socketOf(c.model) === socket);
+      if (cpus.length === 0 || mobos.length < 3) continue;
+      const cheapMobos = mobos.filter((c) => c.price <= budget * 0.3);
+      const ddr = majorityDdr(cheapMobos.length > 0 ? cheapMobos : mobos);
+      const ramMin = ddr
+        ? Math.min(...ramCands.filter((c) => ddrOf(c.model) === ddr)
+          .map((c) => c.price))
+        : Infinity;
+      const entry = Math.min(...cpus.map((c) => c.price)) +
+        Math.min(...mobos.map((c) => c.price)) + ramMin;
+      if (Number.isFinite(entry)) {
+        plats.push({ socket, entry, gen: GEN_ORDER[socket], ddr });
       }
+    }
+    const affordable = plats.filter((p) => p.entry <= budget * 0.5);
+    const chosen = (affordable.length > 0
+      ? affordable.sort((a, b) => b.gen - a.gen)
+      : plats.sort((a, b) => a.entry - b.entry))[0];
+    if (chosen) {
+      anchorSocket = chosen.socket;
+      anchorDdr = chosen.ddr;
+    }
+  }
+  if (!anchorSocket) {
+    // Jangkar cadangan pun tidak boleh melanggar preferensi brand.
+    const pool = brand
+      ? cpuCands.filter((c) => socketUniverse.includes(socketOf(c.model) ?? ""))
+      : cpuCands;
+    const anchor = pool.find((c) => c.overlap > 0 && socketOf(c.model)) ??
+      pool.find((c) => socketOf(c.model));
+    anchorSocket = anchor ? socketOf(anchor.model) : null;
+  }
+  if (anchorSocket) {
+    const sameSocketCpu = cpuCands.filter((c) =>
+      socketOf(c.model) === anchorSocket
+    );
+    if (sameSocketCpu.length > 0) byCategory.set("cpu", sameSocketCpu);
+    const sameSocketMobo = moboCands.filter((c) =>
+      socketOf(c.model) === anchorSocket
+    );
+    if (sameSocketMobo.length > 0) {
+      if (!anchorDdr) {
+        const cheap = sameSocketMobo.filter((c) =>
+          budget === null || c.price <= budget * 0.3
+        );
+        anchorDdr = majorityDdr(cheap.length > 0 ? cheap : sameSocketMobo);
+      }
+      const coherent = anchorDdr
+        ? sameSocketMobo.filter((c) => ddrOf(c.model) === anchorDdr)
+        : sameSocketMobo;
+      byCategory.set(
+        "motherboard",
+        coherent.length > 0 ? coherent : sameSocketMobo,
+      );
+    }
+    if (anchorDdr) {
+      const sameDdr = ramCands.filter((c) => ddrOf(c.model) === anchorDdr);
+      if (sameDdr.length > 0) byCategory.set("ram", sameDdr);
     }
   }
 
   const sections: string[] = [];
-  for (const key of ["cpu", "motherboard", "gpu", "ram", "storage"]) {
+  for (const key of ["cpu", "motherboard", "gpu", "ram", "storage", "laptop", "pc"]) {
     const scored = byCategory.get(key);
     if (!scored || scored.length === 0) continue;
     {
@@ -646,33 +843,97 @@ serve(async (req: Request) => {
   }
   const history = Array.isArray(payload.history) ? payload.history : [];
 
+  // --- State klarifikasi rakitan dari riwayat percakapan ---
+  const userHistory = history
+    .filter((m) => String(m.role ?? "") === "user")
+    .map((m) => String(m.text ?? ""));
+  const assistantHistory = history
+    .filter((m) => String(m.role ?? "") === "assistant")
+    .map((m) => String(m.text ?? ""));
+  const askedClarification = assistantHistory.some((t) =>
+    t.includes(CLARIFY_MARKER)
+  );
+  let brandPref: BrandPref | null = null;
+  for (const t of [message, ...userHistory.slice().reverse()]) {
+    brandPref = detectBrandPref(t);
+    if (brandPref) break;
+  }
+  const buildWanted = isBuildIntent(message) ||
+    (askedClarification && brandPref !== null);
+
   // Handling lokal berlapis (tanpa Gemini, hemat kuota):
   // 1. Sapaan murni -> sambutan + contoh pertanyaan.
   // 2. Di luar topik -> tolak sopan.
   // 3. Topik benar tapi bukan pertanyaan/permintaan -> arahan bertanya.
-  const inScope = isInScope(message);
-  // Sapaan murni: pola sapaan cocok DAN tidak ada kata kunci topik.
-  // (isInScope menganggap sapaan in-scope, jadi cek topiknya terpisah.)
-  const hasTopic = SCOPE_RE.test(message.replace(POSSESSIVE_RE, ""));
-  if (GREETING_RE.test(message) && !hasTopic) {
-    return jsonResponse({ reply: GREETING_REPLY });
-  }
-  if (!inScope) {
-    return jsonResponse({ reply: REFUSAL_REPLY });
-  }
-  if (!isQuestionOrRequest(message)) {
-    return jsonResponse({ reply: STATEMENT_REPLY });
+  // Jawaban atas pertanyaan klarifikasi ("amd, gaming") melewati
+  // gerbang ini — teksnya memang bukan pertanyaan dan kata kuncinya
+  // di luar daftar topik.
+  const isClarifyAnswer = askedClarification && brandPref !== null;
+  if (!isClarifyAnswer) {
+    const inScope = isInScope(message);
+    // Sapaan murni: pola sapaan cocok DAN tidak ada kata kunci topik.
+    // (isInScope menganggap sapaan in-scope, jadi cek topiknya terpisah.)
+    const hasTopic = SCOPE_RE.test(message.replace(POSSESSIVE_RE, ""));
+    if (GREETING_RE.test(message) && !hasTopic) {
+      return jsonResponse({ reply: GREETING_REPLY });
+    }
+    if (!inScope) {
+      return jsonResponse({ reply: REFUSAL_REPLY });
+    }
+    if (!isQuestionOrRequest(message)) {
+      return jsonResponse({ reply: STATEMENT_REPLY });
+    }
   }
 
-  const budget = extractBudgetIdr(message);
-  const context = catalogContext(message, budget);
+  // Permintaan rakitan tanpa preferensi brand -> tanya dulu. Kalau
+  // sudah pernah ditanya dan user tetap tidak memilih, lanjut sebagai
+  // Mix (jangan mengulang pertanyaan).
+  if (buildWanted && !brandPref && !askedClarification) {
+    return jsonResponse({ reply: CLARIFY_REPLY });
+  }
+
+  // Pertanyaan harga produk spesifik -> jalur cepat deterministik.
+  if (!buildWanted) {
+    const lookup = priceLookupReply(message);
+    if (lookup) return jsonResponse({ reply: lookup });
+  }
+
+  // Pesan efektif: jawaban klarifikasi pendek digabung dengan
+  // permintaan rakitan aslinya dari riwayat (di sanalah budget &
+  // konteksnya berada).
+  let effectiveMessage = message;
+  if (askedClarification && !isBuildIntent(message)) {
+    const orig = userHistory.slice().reverse().find((t) => isBuildIntent(t));
+    if (orig) effectiveMessage = `${orig} ${message}`;
+  }
+  let budget = extractBudgetIdr(effectiveMessage);
+  if (budget === null) {
+    for (const t of userHistory.slice().reverse()) {
+      budget = extractBudgetIdr(t);
+      if (budget !== null) break;
+    }
+  }
+  const context = catalogContext(effectiveMessage, budget, brandPref);
   const historyLines = history.slice(-10).map((m) =>
     `${String(m.role ?? "")}: ${String(m.text ?? "")}`
   ).join("\n");
+  const prefLine = brandPref === "amd"
+    ? "Preferensi platform user: AMD (Ryzen) — konteks sudah disaring ke platform AMD.\n"
+    : brandPref === "intel"
+    ? "Preferensi platform user: Intel — konteks sudah disaring ke platform Intel.\n"
+    : brandPref === "mix"
+    ? "Preferensi user: MIX / value for money — utamakan komponen dengan " +
+      "skor konsensus benchmark tertinggi relatif terhadap harganya.\n"
+    : "";
   const prompt =
     "Jawab pertanyaan user memakai DAFTAR HARGA berikut saja (harga IDR, data real). " +
     "JANGAN mengarang harga atau produk di luar daftar.\n" +
     `Budget user (terdeteksi): ${budget ?? "tidak disebut"}\n` +
+    "PERINGATAN: angka pada nama produk (RTX 5070, Ryzen 5 5600, Core " +
+    "i7-12700) BUKAN budget. Budget user HANYA dari baris di atas — " +
+    "kalau 'tidak disebut', jangan menyebut atau mengarang angka " +
+    "budget apa pun.\n" +
+    prefLine +
     `Riwayat chat:\n${historyLines || "(kosong)"}\n` +
     `DAFTAR HARGA:\n${context}\n` +
     "ATURAN RAKITAN (kalau user minta rakitan):\n" +
@@ -681,7 +942,8 @@ serve(async (req: Request) => {
     "- Komponen harus KOMPATIBEL — cek tag [platform: ...] tiap item: socket " +
     "CPU WAJIB sama dengan socket Motherboard (AM4≠LGA1700!), dan generasi " +
     "DDR RAM WAJIB sama dengan Motherboard. Item tanpa tag platform jangan " +
-    "dipakai untuk CPU/Motherboard/RAM.\n" +
+    "dipakai untuk CPU/Motherboard/RAM. Item bertanda [SODIMM] adalah RAM " +
+    "laptop — JANGAN pakai untuk build PC desktop.\n" +
     "- Untuk gaming/editing/streaming GPU TIDAK BOLEH kosong: kalau perlu, " +
     "turunkan kelas CPU/RAM supaya GPU tetap masuk budget.\n" +
     "- Kalau budget disebut: total rakitan targetkan 70-100% dari budget. " +
@@ -692,6 +954,9 @@ serve(async (req: Request) => {
     "tanpa markdown. 'note' maksimal 30 kata. Kalau daftar harga tidak " +
     "memungkinkan rakitan yang layak, tetap susun yang paling masuk akal " +
     "dari daftar dan jelaskan keterbatasannya di note.\n" +
+    "Kategori [LAPTOP] berisi laptop utuh dan [PC] berisi rakitan jadi " +
+    "(harga per paket) — keduanya boleh direkomendasikan di teks reply " +
+    "sebagai alternatif, tapi JANGAN masukkan ke items build.\n" +
     "Kalau user BUKAN minta rakitan (mis. menanyakan satu produk atau " +
     "perbandingan), isi \"build\": null dan jawab pertanyaannya langsung " +
     "memakai harga/skor produk itu dari daftar. JANGAN mengarang status " +
