@@ -8,8 +8,8 @@ import 'package:glbview/glbview.dart';
 
 import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
-import 'package:worthbang/services/pc_scene.dart';
-import 'package:worthbang/services/wglb.dart';
+import 'package:worthbang/services/three_d/pc_scene.dart';
+import 'package:worthbang/services/three_d/wglb.dart';
 
 /// Panggung 3D untuk fitur Rakit PC Acak.
 ///

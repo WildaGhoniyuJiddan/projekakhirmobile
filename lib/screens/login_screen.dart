@@ -7,7 +7,7 @@ import 'package:worthbang/providers/auth_controller.dart';
 import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
 import 'package:worthbang/l10n/strings.dart';
-import 'package:worthbang/services/auth_repository.dart';
+import 'package:worthbang/services/auth/auth_repository.dart';
 import 'package:worthbang/widgets/app_logo.dart';
 
 /// Layar masuk: email + password, opsi biometric, link ke registrasi.

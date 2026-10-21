@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:worthbang/models/auth_models.dart';
-import 'package:worthbang/services/api_exception.dart';
-import 'package:worthbang/services/token_storage.dart';
+import 'package:worthbang/services/core/api_exception.dart';
+import 'package:worthbang/services/auth/token_storage.dart';
 
 /// Repository auth di atas Supabase Auth.
 ///

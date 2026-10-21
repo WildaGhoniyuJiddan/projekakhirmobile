@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:worthbang/models/game_models.dart';
 
-import 'local_catalog.dart';
+import '../data/local_catalog.dart';
 
 final gameApiProvider = Provider<GameApi>((ref) => GameApi());
 

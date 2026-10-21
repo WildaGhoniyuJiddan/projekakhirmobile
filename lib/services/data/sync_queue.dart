@@ -4,7 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:worthbang/providers/providers.dart';
-import 'package:worthbang/services/app_database.dart';
+import 'package:worthbang/services/data/app_database.dart';
 
 /// Antrian mutasi offline (T15): aksi yang gagal karena jaringan,
 /// disimpan di SQLite dan dikirim ulang saat online.

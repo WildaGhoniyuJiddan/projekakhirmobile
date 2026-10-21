@@ -91,7 +91,7 @@ offset 16 : f32[]   positions (x,y,z per vertex)
 ```
 
 `.wglb` dipilih karena **runtime tidak perlu parser GLB**. Parser GLB pure-Dart
-di `lib/services/pc_scene.dart` hanya ~150 baris dan bisa diuji; parser bawaan
+di `lib/services/three_d/pc_scene.dart` hanya ~150 baris dan bisa diuji; parser bawaan
 plugin bisadiesubscribe, tapi format flat lebih mudah diaudit dan ~2× lebih
 kecil daripada GLB per part.
 
@@ -248,8 +248,8 @@ adb shell dumpsys gfxinfo com.worthbang.worthbang | grep -E "Janky|Total frames"
 
 **Baru**
 
-- `lib/services/wglb.dart` — format `.wglb` + katalog
-- `lib/services/pc_scene.dart` — composer GLB pure Dart
+- `lib/services/three_d/wglb.dart` — format `.wglb` + katalog
+- `lib/services/three_d/pc_scene.dart` — composer GLB pure Dart
 - `lib/widgets/pc_3d_stage.dart` — widget panggung
 - `tool/prepare_3d.mjs` — pipeline aset offline
 - `test/three_d/pc_scene_test.dart` — unit test composer

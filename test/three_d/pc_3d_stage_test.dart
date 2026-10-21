@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/screens/builder_screen.dart';
 import 'package:worthbang/widgets/pc_3d_stage.dart';
-import 'package:worthbang/services/wglb.dart';
+import 'package:worthbang/services/three_d/wglb.dart';
 
 Future<void> _pumpStage(
   WidgetTester tester, {

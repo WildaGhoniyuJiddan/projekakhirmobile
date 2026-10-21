@@ -22,7 +22,7 @@ import 'package:worthbang/screens/register_screen.dart';
 import 'package:worthbang/screens/search_screen.dart';
 import 'package:worthbang/screens/tools_screen.dart';
 import 'package:worthbang/screens/trends_screen.dart';
-import 'package:worthbang/services/app_database.dart';
+import 'package:worthbang/services/data/app_database.dart';
 import 'package:worthbang/utils/app.dart';
 import 'package:worthbang/utils/theme.dart';
 

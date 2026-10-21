@@ -51,24 +51,24 @@ abstract class ListingsSource {
 
 `AnalysisEngine(BenchmarkData data, ListingsSource listings)` mengekspos
 hasil yang field-nya 1:1 dengan yang sekarang dikembalikan
-`PriceCheckApi` (lihat `lib/services/price_check_api.dart` +
+`PriceCheckApi` (lihat `lib/services/features/price_check_api.dart` +
 `lib/models/price_check_models.dart` & `bundle_models.dart`):
 analyze (pc/laptop), analyzeBundle, search. JANGAN sentuh
 `price_check_api.dart` — glue-nya dikerjakan koordinator.
 
 ## Porter-Auth-History
 
-- `lib/services/supabase_bootstrap.dart`: `initSupabase()` memakai
+- `lib/services/core/supabase_bootstrap.dart`: `initSupabase()` memakai
   `lib/config/supabase_config.dart`; panggil dari `lib/main.dart`
   sebelum `runApp` (edit main.dart seminimal mungkin).
-- Tulis ulang `lib/services/auth_repository.dart` di atas Supabase
+- Tulis ulang `lib/services/auth/auth_repository.dart` di atas Supabase
   Auth. Metode publik dipertahankan: login, register, restoreSession,
   logout, currentUser, updateCachedUser. `AppUser.id` berubah
   int → String (uuid Supabase) — sesuaikan `lib/models/auth_models.dart`
   + pemakai di providers seperlunya, laporkan semua titik ubah.
   Fallback lokal lama (_loginLocally dkk.) dibuang. Biometrik tidak
   disentuh (tetap gerbang di atas sesi).
-- `lib/services/history_sync.dart`: ganti jalur `/api/v1/history`
+- `lib/services/data/history_sync.dart`: ganti jalur `/api/v1/history`
   menjadi select/insert tabel `analysis_logs` via Supabase client,
   user_id = uuid user login. Semantik B10 dipertahankan: timestamp
   masa depan di-clamp ke sekarang, timestamp naive dianggap UTC.
@@ -98,7 +98,7 @@ analyze (pc/laptop), analyzeBundle, search. JANGAN sentuh
   `retail_catalog.json` + `consensus_scores.json` — salin dua file
   itu ke folder fungsi ini. API key dari env `GEMINI_API_KEY`.
   Respons JSON `{"reply": "..."}` mengikuti `chat_models.dart`.
-- `lib/services/chat_api.dart`: `ask()` → `functions.invoke(
+- `lib/services/features/chat_api.dart`: `ask()` → `functions.invoke(
   'bang-worth', ...)`; interface `ChatApi`/`ChatReply` tidak berubah.
 - `SUPABASE_SETUP.md` di root repo: langkah Dan mengisi config,
   `supabase link`, `db push`, set secret, deploy fungsi, build APK.

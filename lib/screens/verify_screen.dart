@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:worthbang/services/hash_chain_service.dart';
+import 'package:worthbang/services/data/hash_chain_service.dart';
 import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
-import 'package:worthbang/services/app_database.dart';
+import 'package:worthbang/services/data/app_database.dart';
 import 'package:worthbang/l10n/strings.dart';
 import 'package:worthbang/screens/price_check_screen.dart';
 

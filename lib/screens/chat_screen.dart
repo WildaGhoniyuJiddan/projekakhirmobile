@@ -6,8 +6,8 @@ import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
 import 'package:worthbang/widgets/tilt_card.dart';
 import 'package:worthbang/l10n/strings.dart';
-import 'package:worthbang/services/profile_api.dart';
-import 'package:worthbang/services/chat_api.dart';
+import 'package:worthbang/services/features/profile_api.dart';
+import 'package:worthbang/services/features/chat_api.dart';
 import 'package:worthbang/models/chat_models.dart';
 
 /// Layar chat Bang Worth: bubble chat + kartu rakitan (build card)

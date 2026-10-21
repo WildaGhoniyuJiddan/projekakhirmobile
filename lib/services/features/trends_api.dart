@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'local_catalog.dart';
+import '../data/local_catalog.dart';
 
 import 'package:worthbang/models/trend_models.dart';
 

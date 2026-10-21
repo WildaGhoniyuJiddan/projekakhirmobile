@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import 'package:worthbang/services/app_database.dart';
+import 'package:worthbang/services/data/app_database.dart';
 import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
 import 'package:worthbang/utils/rupiah.dart';
@@ -10,8 +10,8 @@ import 'package:worthbang/widgets/verdict_badge.dart';
 import 'package:worthbang/l10n/strings.dart';
 import 'package:worthbang/models/price_check_models.dart';
 import 'package:worthbang/screens/price_check_screen.dart';
-import 'package:worthbang/services/sync_queue.dart';
-import 'package:worthbang/services/sync_service.dart';
+import 'package:worthbang/services/data/sync_queue.dart';
+import 'package:worthbang/services/data/sync_service.dart';
 import 'verify_screen.dart';
 
 /// Tab Riwayat: daftar analisis tersimpan (offline-first, Drift) + verifikasi.

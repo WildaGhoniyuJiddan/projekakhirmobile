@@ -1,9 +1,9 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:worthbang/services/app_database.dart';
-import 'package:worthbang/services/sync_queue.dart';
-import 'package:worthbang/services/sync_service.dart';
+import 'package:worthbang/services/data/app_database.dart';
+import 'package:worthbang/services/data/sync_queue.dart';
+import 'package:worthbang/services/data/sync_service.dart';
 
 AppDatabase _memDb() => AppDatabase(NativeDatabase.memory());
 

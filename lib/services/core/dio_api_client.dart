@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
-import 'package:worthbang/services/token_storage.dart';
+import 'package:worthbang/services/auth/token_storage.dart';
 import 'api_client.dart';
 import 'api_exception.dart';
 

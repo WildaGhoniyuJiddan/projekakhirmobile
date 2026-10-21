@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'engine/dataset.dart';
+import '../engine/dataset.dart';
 
 /// Implementasi ListingsSource di atas Supabase (PostgREST + RPC).
 ///

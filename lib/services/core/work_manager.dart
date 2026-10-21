@@ -9,11 +9,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
-import 'package:worthbang/services/alert_check_service.dart';
-import 'package:worthbang/services/alerts_api.dart';
-import 'package:worthbang/services/price_check_api.dart';
-import 'package:worthbang/services/supabase_bootstrap.dart';
-import 'package:worthbang/services/app_database.dart';
+import 'package:worthbang/services/features/alert_check_service.dart';
+import 'package:worthbang/services/features/alerts_api.dart';
+import 'package:worthbang/services/features/price_check_api.dart';
+import 'package:worthbang/services/core/supabase_bootstrap.dart';
+import 'package:worthbang/services/data/app_database.dart';
 
 /// Nama task & tag untuk pengecekan price alert berkala.
 const String priceAlertTaskName = 'worthbang.priceAlertCheck';

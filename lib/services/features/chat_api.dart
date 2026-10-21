@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:worthbang/models/chat_models.dart';
-import 'package:worthbang/services/api_exception.dart';
+import 'package:worthbang/services/core/api_exception.dart';
 
 final chatApiProvider = Provider<ChatApi>((ref) => ChatApi());
 

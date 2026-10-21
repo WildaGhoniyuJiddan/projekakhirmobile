@@ -1,8 +1,8 @@
 import 'package:drift/drift.dart';
 
-import 'package:worthbang/services/hash_chain_service.dart';
-import 'package:worthbang/services/app_database.dart';
-import 'package:worthbang/services/history_sync.dart';
+import 'package:worthbang/services/data/hash_chain_service.dart';
+import 'package:worthbang/services/data/app_database.dart';
+import 'package:worthbang/services/data/history_sync.dart';
 import 'package:worthbang/models/price_check_models.dart';
 
 /// Repository riwayat: simpan hasil analisis sebagai blok hash chain (Drift).

@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:worthbang/providers/providers.dart';
-import 'package:worthbang/services/api_client.dart';
+import 'package:worthbang/services/core/api_client.dart';
 
 final currencyApiProvider = Provider<CurrencyApi>(
   (ref) => CurrencyApi(ref.watch(apiClientProvider)),

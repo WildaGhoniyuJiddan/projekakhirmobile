@@ -3,10 +3,10 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sensors_plus/sensors_plus.dart';
-import 'package:worthbang/services/local_catalog.dart';
-import 'package:worthbang/services/builder_api.dart';
+import 'package:worthbang/services/data/local_catalog.dart';
+import 'package:worthbang/services/features/builder_api.dart';
 import 'package:worthbang/models/builder_models.dart';
-import 'package:worthbang/services/shake_detector.dart';
+import 'package:worthbang/services/core/shake_detector.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

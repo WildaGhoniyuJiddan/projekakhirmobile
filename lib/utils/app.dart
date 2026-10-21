@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:worthbang/services/connectivity_service.dart';
-import 'package:worthbang/services/work_manager.dart';
-import 'package:worthbang/services/alert_check_service.dart';
-import 'package:worthbang/services/profile_api.dart';
-import 'package:worthbang/services/sync_queue.dart';
-import 'package:worthbang/services/sync_service.dart';
+import 'package:worthbang/services/core/connectivity_service.dart';
+import 'package:worthbang/services/core/work_manager.dart';
+import 'package:worthbang/services/features/alert_check_service.dart';
+import 'package:worthbang/services/features/profile_api.dart';
+import 'package:worthbang/services/data/sync_queue.dart';
+import 'package:worthbang/services/data/sync_service.dart';
 import 'package:worthbang/l10n/strings.dart';
 
 import 'router.dart';

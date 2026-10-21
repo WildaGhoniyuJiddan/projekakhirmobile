@@ -6,10 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import 'package:worthbang/services/api_client.dart';
-import 'package:worthbang/services/dio_api_client.dart';
-import 'package:worthbang/services/token_storage.dart';
-import 'package:worthbang/services/app_database.dart';
+import 'package:worthbang/services/core/api_client.dart';
+import 'package:worthbang/services/core/dio_api_client.dart';
+import 'package:worthbang/services/auth/token_storage.dart';
+import 'package:worthbang/services/data/app_database.dart';
 
 /// Penyimpanan token aman (flutter_secure_storage).
 final tokenStorageProvider = Provider<TokenStorage>((ref) => TokenStorage());

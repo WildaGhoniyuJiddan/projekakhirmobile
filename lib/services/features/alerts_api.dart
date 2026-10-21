@@ -2,7 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:worthbang/providers/providers.dart';
-import 'package:worthbang/services/app_database.dart' as db;
+import 'package:worthbang/services/data/app_database.dart' as db;
 
 final alertsApiProvider = Provider<AlertsApi>(
   (ref) => AlertsApi(ref.watch(databaseProvider)),

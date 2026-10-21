@@ -1,6 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:worthbang/services/app_database.dart';
+import 'package:worthbang/services/data/app_database.dart';
 
 /// Sinkronisasi riwayat analisis ke Supabase — pengganti jalur
 /// `/api/v1/history` backend Python (B10).

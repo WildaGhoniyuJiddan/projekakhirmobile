@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:worthbang/services/pc_scene.dart';
-import 'package:worthbang/services/wglb.dart';
+import 'package:worthbang/services/three_d/pc_scene.dart';
+import 'package:worthbang/services/three_d/wglb.dart';
 
 /// Part uji: satu segitiga.
 ScenePart _triPart(String role, {int colorArgb = 0xFF8899AA}) => ScenePart(

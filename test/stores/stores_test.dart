@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worthbang/models/store_models.dart';
-import 'package:worthbang/services/stores_api.dart';
+import 'package:worthbang/services/features/stores_api.dart';
 
 Store _store(int id, String name, Map<String, int> prices, double dist) =>
     Store(

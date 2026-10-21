@@ -1,7 +1,7 @@
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:worthbang/services/currency_api.dart';
+import 'package:worthbang/services/features/currency_api.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

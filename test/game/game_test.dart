@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:worthbang/services/game_api.dart';
+import 'package:worthbang/services/features/game_api.dart';
 import 'package:worthbang/models/game_models.dart';
 
 void main() {

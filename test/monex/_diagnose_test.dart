@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:worthbang/providers/providers.dart';
 import 'package:worthbang/screens/builder_screen.dart';
 import 'package:worthbang/screens/price_check_screen.dart';
-import 'package:worthbang/services/app_database.dart';
+import 'package:worthbang/services/data/app_database.dart';
 import 'package:worthbang/utils/theme.dart';
 
 /// Diagnostik: cari RenderFlex yang overflow, print child-nya.

@@ -8,11 +8,11 @@ import 'package:worthbang/providers/providers.dart';
 import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
 import 'package:worthbang/l10n/strings.dart';
-import 'package:worthbang/services/auth_repository.dart';
+import 'package:worthbang/services/auth/auth_repository.dart';
 import 'package:worthbang/providers/auth_controller.dart';
-import 'package:worthbang/services/sync_queue.dart';
-import 'package:worthbang/services/sync_service.dart';
-import 'package:worthbang/services/profile_api.dart';
+import 'package:worthbang/services/data/sync_queue.dart';
+import 'package:worthbang/services/data/sync_service.dart';
+import 'package:worthbang/services/features/profile_api.dart';
 
 /// Tab Profil: foto, nama, pengaturan (biometric/tilt/tema), feedback, logout.
 class ProfileContentScreen extends ConsumerStatefulWidget {

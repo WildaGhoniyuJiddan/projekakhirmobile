@@ -6,12 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:worthbang/services/api_result.dart';
+import 'package:worthbang/services/core/api_result.dart';
 import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
 import 'package:worthbang/l10n/strings.dart';
 import 'package:worthbang/models/store_models.dart';
-import 'package:worthbang/services/stores_api.dart';
+import 'package:worthbang/services/features/stores_api.dart';
 
 /// Koordinat fallback (demo Jakarta) bila izin lokasi ditolak / gagal.
 const _demoLat = -6.2088;

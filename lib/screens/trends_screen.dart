@@ -5,11 +5,11 @@ import 'package:intl/intl.dart';
 
 import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
-import 'package:worthbang/services/api_result.dart';
+import 'package:worthbang/services/core/api_result.dart';
 import 'package:worthbang/utils/rupiah.dart';
 import 'package:worthbang/l10n/strings.dart';
 import 'package:worthbang/models/trend_models.dart';
-import 'package:worthbang/services/trends_api.dart';
+import 'package:worthbang/services/features/trends_api.dart';
 
 /// Tab Tren: grafik harga 30 hari + min/max/avg/perubahan + ringkasan deskriptif.
 class TrendsScreenContent extends ConsumerStatefulWidget {

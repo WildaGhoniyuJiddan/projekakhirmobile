@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:worthbang/services/wglb.dart';
+import 'package:worthbang/services/three_d/wglb.dart';
 
 /// Rakitan PC sebagai satu scene GLB siap tampil.
 ///

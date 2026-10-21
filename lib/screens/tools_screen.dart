@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:worthbang/l10n/strings.dart';
 import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
-import 'package:worthbang/services/currency_api.dart';
+import 'package:worthbang/services/features/currency_api.dart';
 
 /// Layar Konverter: mata uang (kurs server) + zona waktu WIB/WITA/WIT/UTC.
 class ToolsScreen extends ConsumerStatefulWidget {

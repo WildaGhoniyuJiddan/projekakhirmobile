@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:worthbang/services/connectivity_service.dart';
+import 'package:worthbang/services/core/connectivity_service.dart';
 import 'package:worthbang/l10n/strings.dart';
 
 /// Banner tipis "Offline" di atas konten bila tidak ada koneksi (T15).

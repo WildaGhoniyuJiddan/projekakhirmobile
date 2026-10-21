@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:worthbang/services/hash_chain_service.dart';
+import 'package:worthbang/services/data/hash_chain_service.dart';
 
 HashBlock _block({
   required int id,

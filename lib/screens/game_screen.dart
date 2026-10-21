@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
-import 'package:worthbang/services/api_result.dart';
+import 'package:worthbang/services/core/api_result.dart';
 import 'package:worthbang/utils/rupiah.dart';
 import 'package:worthbang/l10n/strings.dart';
-import 'package:worthbang/services/game_api.dart';
+import 'package:worthbang/services/features/game_api.dart';
 import 'package:worthbang/models/game_models.dart';
 
 /// Game Tebak Harga: 5 ronde, tebak harga produk, skor per ronde 0–100.

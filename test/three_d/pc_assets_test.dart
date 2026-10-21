@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glbview/glbview.dart';
-import 'package:worthbang/services/pc_scene.dart';
-import 'package:worthbang/services/wglb.dart';
+import 'package:worthbang/services/three_d/pc_scene.dart';
+import 'package:worthbang/services/three_d/wglb.dart';
 
 /// Verifikasi nyata: file .wglb hasil pipeline offline + GLB hasil rakitan
 /// harus bisa dibaca parser milik plugin (parser yang sama dengan yang

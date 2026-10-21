@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:worthbang/services/notification_service.dart';
-import 'package:worthbang/services/price_check_api.dart';
+import 'package:worthbang/services/core/notification_service.dart';
+import 'package:worthbang/services/features/price_check_api.dart';
 import 'package:worthbang/screens/price_check_screen.dart'
     show priceCheckApiProvider;
 import 'alerts_api.dart';

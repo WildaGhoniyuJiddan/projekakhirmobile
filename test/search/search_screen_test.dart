@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:worthbang/models/price_check_models.dart';
 import 'package:worthbang/screens/price_check_screen.dart';
 import 'package:worthbang/screens/search_screen.dart';
-import 'package:worthbang/services/api_exception.dart';
-import 'package:worthbang/services/price_check_api.dart';
+import 'package:worthbang/services/core/api_exception.dart';
+import 'package:worthbang/services/features/price_check_api.dart';
 
 class _MockPriceCheckApi extends PriceCheckApi {
   _MockPriceCheckApi({this.onSearch}) : super();

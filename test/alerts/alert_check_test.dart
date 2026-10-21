@@ -2,10 +2,10 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worthbang/models/price_check_models.dart';
-import 'package:worthbang/services/alert_check_service.dart';
-import 'package:worthbang/services/alerts_api.dart';
-import 'package:worthbang/services/app_database.dart' hide PriceAlert;
-import 'package:worthbang/services/price_check_api.dart';
+import 'package:worthbang/services/features/alert_check_service.dart';
+import 'package:worthbang/services/features/alerts_api.dart';
+import 'package:worthbang/services/data/app_database.dart' hide PriceAlert;
+import 'package:worthbang/services/features/price_check_api.dart';
 
 /// Stub PriceCheckApi: analyze() mengembalikan harga pasar stub.
 /// Alerts sekarang dari Drift lokal.

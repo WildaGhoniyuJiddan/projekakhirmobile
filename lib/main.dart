@@ -4,9 +4,9 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:worthbang/utils/app.dart';
-import 'package:worthbang/services/notification_service.dart';
-import 'package:worthbang/services/supabase_bootstrap.dart';
-import 'package:worthbang/services/work_manager.dart';
+import 'package:worthbang/services/core/notification_service.dart';
+import 'package:worthbang/services/core/supabase_bootstrap.dart';
+import 'package:worthbang/services/core/work_manager.dart';
 
 /// Entry point aplikasi WorthBang.
 ///

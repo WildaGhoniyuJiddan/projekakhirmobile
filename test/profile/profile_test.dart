@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worthbang/models/auth_models.dart';
 import 'package:worthbang/providers/auth_controller.dart';
-import 'package:worthbang/services/profile_api.dart';
+import 'package:worthbang/services/features/profile_api.dart';
 
 class _AuthenticatedAuthController extends AuthController {
   @override

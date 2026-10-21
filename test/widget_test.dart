@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worthbang/utils/app.dart';
 import 'package:worthbang/providers/providers.dart';
-import 'package:worthbang/services/app_database.dart';
+import 'package:worthbang/services/data/app_database.dart';
 import 'package:worthbang/models/auth_models.dart';
 import 'package:worthbang/providers/auth_controller.dart';
 import 'package:worthbang/l10n/strings.dart';

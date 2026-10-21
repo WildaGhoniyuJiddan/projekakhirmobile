@@ -15,7 +15,29 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import catalog from "./retail_catalog.json" with { type: "json" };
 import consensus from "./consensus_scores.json" with { type: "json" };
 
-const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-1.5-flash";
+// Rotasi model (keputusan Dan 2026-10-21): jangan terpaku satu model.
+// Daftar dicoba berurutan; model yang mati/dipensiunkan Google (404),
+// sibuk (503 UNAVAILABLE), atau kehabisan kuota (429) dilewati ke model
+// berikutnya. Urutan default dari yang paling baru. Bisa dioverride
+// lewat secret GEMINI_MODELS (pisah koma) atau GEMINI_MODEL (satu model,
+// tetap ditaruh paling depan).
+const DEFAULT_MODELS = [
+  "gemini-3.8-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
+  "gemini-1.5-flash",
+];
+const GEMINI_MODELS = (() => {
+  const fromEnv = (Deno.env.get("GEMINI_MODELS") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const single = (Deno.env.get("GEMINI_MODEL") ?? "").trim();
+  const list = [...fromEnv];
+  if (single && !list.includes(single)) list.unshift(single);
+  return list.length > 0 ? list : DEFAULT_MODELS;
+})();
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
@@ -247,16 +269,29 @@ class ChatError extends Error {
   }
 }
 
-async function geminiText(
+/// Satu percobaan ke satu model. Hasilnya salah satu dari:
+/// - { ok: true, text }               -> sukses, selesai.
+/// - { ok: false, rotate: true, err } -> model ini yang bermasalah
+///   (mati/404, sibuk, kuota habis, jaringan) -> coba model berikutnya.
+/// - { ok: false, rotate: false, err } -> masalah di key/konfigurasi;
+///   semua model akan gagal sama -> langsung lempar.
+type GeminiAttempt =
+  | { ok: true; text: string }
+  | { ok: false; rotate: boolean; err: ChatError };
+
+async function geminiAttempt(
+  model: string,
+  apiKey: string,
   prompt: string,
   systemInstruction: string,
-): Promise<string> {
-  const apiKey = Deno.env.get("GEMINI_API_KEY") ?? "";
-  if (!apiKey) {
-    throw new ChatError(503, "Chat service not configured");
-  }
+): Promise<GeminiAttempt> {
+  const fail = (rotate: boolean, message: string): GeminiAttempt => ({
+    ok: false,
+    rotate,
+    err: new ChatError(503, message),
+  });
   const url =
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   let resp: Response;
   try {
     resp = await fetch(url, {
@@ -269,10 +304,10 @@ async function geminiText(
         systemInstruction: { parts: [{ text: systemInstruction }] },
         contents: [{ parts: [{ text: prompt }] }],
       }),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(20_000),
     });
   } catch {
-    throw new ChatError(503, "Chat service unavailable, try again later");
+    return fail(true, "Chat service unavailable, try again later");
   }
   if (resp.status !== 200) {
     let error: Record<string, unknown> = {};
@@ -286,35 +321,59 @@ async function geminiText(
       error = {};
     }
     const upstreamStatus = String(error["status"] ?? "unknown");
-    if (resp.status === 400 || resp.status === 401 || resp.status === 403) {
-      throw new ChatError(
-        503,
+    // Key/config ditolak: model lain pun akan ditolak — jangan rotate.
+    if (resp.status === 401 || resp.status === 403) {
+      return fail(
+        false,
         "Gemini menolak konfigurasi. Periksa API key dan akses model.",
       );
-    } else if (resp.status === 429) {
-      throw new ChatError(
-        503,
+    }
+    // 404/400 (model tidak ditemukan / tidak didukung), 429 (kuota
+    // per-model), 503 UNAVAILABLE (model sibuk): rotate ke berikutnya.
+    if (resp.status === 429) {
+      return fail(
+        true,
         "Kuota atau batas permintaan Gemini tercapai. Coba lagi nanti.",
       );
-    } else if (resp.status === 503 && upstreamStatus === "UNAVAILABLE") {
-      throw new ChatError(
-        503,
+    }
+    if (resp.status === 503 && upstreamStatus === "UNAVAILABLE") {
+      return fail(
+        true,
         "Model Gemini sedang sibuk. Coba kirim pesan lagi beberapa saat.",
       );
     }
-    throw new ChatError(503, "Chat service unavailable, try again later");
+    return fail(true, "Chat service unavailable, try again later");
   }
   try {
     const data = await resp.json();
     const text = data["candidates"][0]["content"]["parts"][0]["text"];
     if (typeof text !== "string") throw new Error("bentuk respons asing");
-    return text;
+    return { ok: true, text };
   } catch {
-    throw new ChatError(
-      503,
-      "Chat service returned an unexpected response",
-    );
+    return fail(true, "Chat service returned an unexpected response");
   }
+}
+
+async function geminiText(
+  prompt: string,
+  systemInstruction: string,
+): Promise<string> {
+  const apiKey = Deno.env.get("GEMINI_API_KEY") ?? "";
+  if (!apiKey) {
+    throw new ChatError(503, "Chat service not configured");
+  }
+  // Rotasi: coba model satu per satu sampai ada yang menjawab. Error
+  // terakhir yang paling informatif (kuota/sibuk) yang dilaporkan kalau
+  // semua model gagal.
+  let lastErr: ChatError | null = null;
+  for (const model of GEMINI_MODELS) {
+    const attempt = await geminiAttempt(model, apiKey, prompt, systemInstruction);
+    if (attempt.ok) return attempt.text;
+    if (!attempt.rotate) throw attempt.err;
+    lastErr = attempt.err;
+  }
+  throw lastErr ??
+    new ChatError(503, "Chat service unavailable, try again later");
 }
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worthbang/models/auth_models.dart';
-import 'package:worthbang/services/auth_repository.dart';
-import 'package:worthbang/services/token_storage.dart';
+import 'package:worthbang/services/auth/auth_repository.dart';
+import 'package:worthbang/services/auth/token_storage.dart';
 
 /// Kontrak AuthRepository versi Supabase Auth (full-Dart).
 ///

@@ -6,8 +6,8 @@ import 'package:worthbang/core/widgets/monex_widgets.dart';
 import 'package:worthbang/utils/rupiah.dart';
 import 'package:worthbang/widgets/verdict_badge.dart';
 import 'package:worthbang/l10n/strings.dart';
-import 'package:worthbang/services/alerts_api.dart';
-import 'package:worthbang/services/wishlist_api.dart';
+import 'package:worthbang/services/features/alerts_api.dart';
+import 'package:worthbang/services/features/wishlist_api.dart';
 import 'package:worthbang/models/price_check_models.dart';
 
 /// Layar hasil analisis: verdict, skor, rentang wajar, pembanding, alternatif.
