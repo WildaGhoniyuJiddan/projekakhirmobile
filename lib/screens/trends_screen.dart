@@ -293,13 +293,13 @@ class _TrendChart extends StatelessWidget {
                   .map((s) => LineTooltipItem(
                         '${dateFmt.format(data.points[s.x.toInt()].date)}\n'
                         '${formatRupiah((s.y * 1e6).round())}',
-                        const TextStyle(
+                        TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: MonexColors.textDark,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ))
                   .toList(),
-              getTooltipColor: (_) => MonexColors.surfaceElevated,
+              getTooltipColor: (_) => theme.colorScheme.surfaceContainerHighest,
             ),
           ),
         ),

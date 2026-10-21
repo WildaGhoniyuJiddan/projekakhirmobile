@@ -143,7 +143,8 @@ class ResultScreen extends ConsumerWidget {
           const SizedBox(height: MonexSpacing.sectionGap),
           Row(
             children: [
-              const Icon(Icons.link, size: 16),
+              Icon(Icons.link,
+                  size: 16, color: theme.textTheme.bodySmall?.color),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
@@ -157,7 +158,8 @@ class ResultScreen extends ConsumerWidget {
             const SizedBox(height: 4),
             Row(
               children: [
-                const Icon(Icons.update, size: 16),
+                Icon(Icons.update,
+                    size: 16, color: theme.textTheme.bodySmall?.color),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(

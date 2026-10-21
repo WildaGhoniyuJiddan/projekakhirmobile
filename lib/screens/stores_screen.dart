@@ -202,10 +202,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                     Expanded(
                       child: Text(
                         _locationMessage ?? AppStrings.demoLocationNote,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
                     if (_locationMessage?.contains('Pengaturan') ?? false)

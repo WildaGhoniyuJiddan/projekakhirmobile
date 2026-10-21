@@ -36,12 +36,15 @@ class MonexSurfaceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cardColor = color ?? theme.colorScheme.surface;
+    final cardBorder = borderColor ?? theme.colorScheme.outlineVariant;
     final decoration = BoxDecoration(
-      color: gradient == null ? (color ?? MonexColors.surface) : null,
+      color: gradient == null ? cardColor : null,
       gradient: gradient,
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(
-        color: borderColor ?? MonexColors.borderSubtle,
+        color: cardBorder,
         width: 1,
       ),
       boxShadow: boxShadow,
@@ -358,7 +361,7 @@ class MonexSecondaryButton extends StatelessWidget {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         foregroundColor: Theme.of(context).colorScheme.onSurface,
-        side: const BorderSide(color: MonexColors.borderLight),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         shape: const StadiumBorder(),
         textStyle: const TextStyle(
@@ -414,7 +417,7 @@ class MonexSegmentedControl<T> extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(MonexSpacing.radiusMd),
-        border: Border.all(color: MonexColors.borderSubtle),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Row(
         children: [
@@ -481,7 +484,10 @@ class _SegmentButton extends StatelessWidget {
               Icon(
                 icon,
                 size: 15,
-                color: selected ? MonexColors.lime : theme.textTheme.bodySmall!.color,
+                color: selected
+                    ? MonexColors.lime
+                    : (theme.textTheme.bodyMedium?.color ??
+                        theme.colorScheme.onSurfaceVariant),
               ),
               const SizedBox(width: 6),
             ],
@@ -496,7 +502,8 @@ class _SegmentButton extends StatelessWidget {
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   color: selected
                       ? MonexColors.lime
-                      : theme.textTheme.bodySmall!.color,
+                      : (theme.textTheme.bodyMedium?.color ??
+                          theme.colorScheme.onSurfaceVariant),
                 ),
               ),
             ),
@@ -614,7 +621,7 @@ class MonexProgressBar extends StatelessWidget {
     required this.value,
     this.height = 8,
     this.color = MonexColors.lime,
-    this.trackColor = MonexColors.chartTrack,
+    this.trackColor,
     this.animate = true,
   });
 
@@ -622,11 +629,15 @@ class MonexProgressBar extends StatelessWidget {
   final double value;
   final double height;
   final Color color;
-  final Color trackColor;
+  final Color? trackColor;
   final bool animate;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final effectiveTrack = trackColor ??
+        theme.progressIndicatorTheme.linearTrackColor ??
+        theme.colorScheme.surfaceContainerHighest;
     final clamped = value.isNaN ? 0.0 : value.clamp(0.0, 1.0);
     return ClipRRect(
       borderRadius: BorderRadius.circular(height),
@@ -637,7 +648,7 @@ class MonexProgressBar extends StatelessWidget {
         builder: (context, v, _) => LinearProgressIndicator(
           value: v,
           minHeight: height,
-          backgroundColor: trackColor,
+          backgroundColor: effectiveTrack,
           valueColor: AlwaysStoppedAnimation<Color>(color),
         ),
       ),
@@ -921,10 +932,12 @@ void showMonexToast(
       ? MonexColors.danger
       : isSuccess
           ? MonexColors.lime
-          : MonexColors.surfaceElevated;
-  final fg = (isError || isSuccess)
-      ? MonexColors.textDark
-      : Theme.of(context).colorScheme.onSurface;
+          : Theme.of(context).colorScheme.surfaceContainerHighest;
+  final fg = isError
+      ? Colors.white
+      : isSuccess
+          ? MonexColors.textDark
+          : Theme.of(context).colorScheme.onSurface;
 
   messenger.showSnackBar(
     SnackBar(
@@ -1353,7 +1366,7 @@ class MonexBottomNavBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         border: Border(
-          top: BorderSide(color: MonexColors.borderSubtle),
+          top: BorderSide(color: theme.colorScheme.outlineVariant),
         ),
       ),
       child: NavigationBar(

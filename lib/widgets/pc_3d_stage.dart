@@ -133,12 +133,15 @@ class _Pc3DStageState extends State<Pc3DStage> {
         borderRadius: BorderRadius.circular(MonexSpacing.radiusCard),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [MonexColors.surface, MonexColors.canvas],
+              colors: [
+                Theme.of(context).colorScheme.surface,
+                Theme.of(context).colorScheme.surfaceContainerHighest,
+              ],
             ),
-            border: Border.all(color: MonexColors.borderSubtle),
+            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
           ),
           child: Stack(
             fit: StackFit.expand,
@@ -245,7 +248,9 @@ class _Fallback2D extends StatelessWidget {
           if (busy)
             const MonexOrbitLoader(size: 34)
           else
-            Icon(icon, color: MonexColors.textMuted, size: 30),
+            Icon(icon,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                size: 30),
           const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -254,9 +259,7 @@ class _Fallback2D extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: MonexColors.textSecondary,
-                  ),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
         ],
@@ -274,9 +277,9 @@ class _StageCaption extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: MonexColors.canvas.withValues(alpha: 0.72),
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(MonexSpacing.radiusSm),
-        border: Border.all(color: MonexColors.borderSubtle),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

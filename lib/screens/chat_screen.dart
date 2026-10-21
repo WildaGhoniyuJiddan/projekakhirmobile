@@ -180,7 +180,7 @@ class _ChatBubble extends StatelessWidget {
           border: Border.all(
             color: isUser
                 ? MonexColors.lime.withValues(alpha: 0.35)
-                : MonexColors.borderSubtle,
+                : Theme.of(context).colorScheme.outlineVariant,
           ),
         ),
         child: Column(

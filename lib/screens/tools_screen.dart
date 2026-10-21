@@ -155,8 +155,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
               if (_rates!.updatedAt != null)
                 Text(
                   'Kurs diperbarui: ${DateFormat('d MMM HH:mm').format(_rates!.updatedAt!.toLocal())}',
-                  style:
-                      const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
             ],
             const SizedBox(height: 24),
