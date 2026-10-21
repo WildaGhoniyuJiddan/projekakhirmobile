@@ -8,6 +8,7 @@ import 'package:worthbang/utils/rupiah.dart';
 import 'package:worthbang/l10n/strings.dart';
 import 'package:worthbang/services/features/game_api.dart';
 import 'package:worthbang/models/game_models.dart';
+import 'package:worthbang/screens/zero_g_thermal_screen.dart';
 
 /// Game Tebak Harga: 5 ronde, tebak harga produk, skor per ronde 0–100.
 /// Total disimpan sebagai high score lokal.
@@ -126,6 +127,15 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       appBar: AppBar(
         title: const Text(AppStrings.gameTitle),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.developer_board_rounded, color: MonexColors.lime),
+            tooltip: 'Protokol Termal Zero-G',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const ZeroGThermalScreen()),
+              );
+            },
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Center(

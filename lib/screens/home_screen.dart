@@ -13,6 +13,7 @@ import 'package:worthbang/screens/search_screen.dart';
 import 'package:worthbang/screens/stores_screen.dart';
 import 'package:worthbang/screens/tools_screen.dart';
 import 'package:worthbang/screens/wishlist_screen.dart';
+import 'package:worthbang/screens/zero_g_thermal_screen.dart';
 import 'package:worthbang/widgets/app_logo.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -60,6 +61,12 @@ class HomeScreen extends StatelessWidget {
       subtitle: AppStrings.homeGameSubtitle,
       icon: Icons.sports_esports_outlined,
       page: () => const GameScreen(),
+    ),
+    _HomeMenuItem(
+      title: 'Protokol Zero-G',
+      subtitle: 'Minigame 16-bit retro aplikasi thermal paste CPU',
+      icon: Icons.developer_board_rounded,
+      page: () => const ZeroGThermalScreen(),
     ),
     _HomeMenuItem(
       title: AppStrings.chatTitle,
