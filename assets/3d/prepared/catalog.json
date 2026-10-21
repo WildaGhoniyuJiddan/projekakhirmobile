@@ -9,9 +9,9 @@
         "name": "Gigabyte X870 AORUS ELITE WIFI7 AM5 DDR5 ATX",
         "category": "Motherboard",
         "file": "assets/3d/prepared/mobo_0.wglb",
-        "bytes": 154060,
-        "tris": 5925,
-        "verts": 3456,
+        "bytes": 152692,
+        "tris": 5819,
+        "verts": 3452,
         "color": "#2E3440"
       },
       {
@@ -21,9 +21,9 @@
         "name": "MSI MEG X870E GODLIKE AM5 DDR5 EATX",
         "category": "Motherboard",
         "file": "assets/3d/prepared/mobo_1.wglb",
-        "bytes": 181888,
-        "tris": 5978,
-        "verts": 4589,
+        "bytes": 184360,
+        "tris": 5974,
+        "verts": 4694,
         "color": "#2E3440"
       },
       {
@@ -33,9 +33,9 @@
         "name": "Gigabyte X870 AORUS ELITE WIFI7 ICE",
         "category": "Motherboard",
         "file": "assets/3d/prepared/mobo_2.wglb",
-        "bytes": 155920,
-        "tris": 5956,
-        "verts": 3518,
+        "bytes": 153100,
+        "tris": 5823,
+        "verts": 3467,
         "color": "#2E3440"
       }
     ],
@@ -47,9 +47,9 @@
         "name": "PowerColor Hellhound OC Radeon RX 9070 XT 16GB GDDR6",
         "category": "GPU",
         "file": "assets/3d/prepared/gpu_0.wglb",
-        "bytes": 157180,
-        "tris": 5769,
-        "verts": 3664,
+        "bytes": 155824,
+        "tris": 5758,
+        "verts": 3613,
         "color": "#4B5563"
       },
       {
@@ -59,9 +59,9 @@
         "name": "MSI GPU (SKU Newegg N82E16814137911, dari payload yang sama)",
         "category": "GPU",
         "file": "assets/3d/prepared/gpu_1.wglb",
-        "bytes": 135820,
-        "tris": 5649,
-        "verts": 2834,
+        "bytes": 157420,
+        "tris": 5899,
+        "verts": 3609,
         "color": "#4B5563"
       },
       {
@@ -71,9 +71,9 @@
         "name": "ASUS ROG Astral GeForce RTX 5090 32GB GDDR7 WHITE OC Edition",
         "category": "GPU",
         "file": "assets/3d/prepared/gpu_2.wglb",
-        "bytes": 146524,
-        "tris": 5861,
-        "verts": 3174,
+        "bytes": 159724,
+        "tris": 5923,
+        "verts": 3693,
         "color": "#4B5563"
       }
     ],
@@ -111,9 +111,9 @@
         "name": "Thermalright Grand Vision Water ARGB Black [radiator]",
         "category": "CPUCooler",
         "file": "assets/3d/prepared/cpu_0.wglb",
-        "bytes": 82084,
-        "tris": 2919,
-        "verts": 1960,
+        "bytes": 83392,
+        "tris": 2988,
+        "verts": 1980,
         "color": "#374151"
       },
       {
@@ -123,9 +123,9 @@
         "name": "MSI MEG CORELIQUID E15 360",
         "category": "CPUCooler",
         "file": "assets/3d/prepared/cpu_1.wglb",
-        "bytes": 72556,
-        "tris": 2995,
-        "verts": 1525,
+        "bytes": 72496,
+        "tris": 2994,
+        "verts": 1523,
         "color": "#374151"
       }
     ],
@@ -137,9 +137,9 @@
         "name": "MSI MAG A850GL PCIE5 850W Fully Modular 80+ Gold Certified",
         "category": "PSU",
         "file": "assets/3d/prepared/psu_0.wglb",
-        "bytes": 94216,
-        "tris": 3758,
-        "verts": 2046,
+        "bytes": 63616,
+        "tris": 2572,
+        "verts": 1364,
         "color": "#1F2937"
       },
       {
@@ -150,8 +150,8 @@
         "category": "PSU",
         "file": "assets/3d/prepared/psu_1.wglb",
         "bytes": 54268,
-        "tris": 2199,
-        "verts": 1161,
+        "tris": 2197,
+        "verts": 1162,
         "color": "#1F2937"
       }
     ],
@@ -163,9 +163,9 @@
         "name": "darkFlash INF34 ARGB PWM 120mm Black Pack of 3",
         "category": "CaseFan",
         "file": "assets/3d/prepared/fan_0.wglb",
-        "bytes": 23104,
-        "tris": 882,
-        "verts": 521,
+        "bytes": 23632,
+        "tris": 900,
+        "verts": 534,
         "color": "#3F3F46"
       },
       {
@@ -175,9 +175,9 @@
         "name": "darkFlash INF34 ARGB PWM 120mm Black Reverse",
         "category": "CaseFan",
         "file": "assets/3d/prepared/fan_1.wglb",
-        "bytes": 23512,
-        "tris": 900,
-        "verts": 529,
+        "bytes": 23668,
+        "tris": 899,
+        "verts": 536,
         "color": "#3F3F46"
       }
     ],
@@ -189,9 +189,9 @@
         "name": "Phanteks NV5 ATX Mid Tower Black Tempered Glass Side Panel",
         "category": "PCCase",
         "file": "assets/3d/prepared/case_0.wglb",
-        "bytes": 77872,
-        "tris": 3444,
-        "verts": 1522,
+        "bytes": 89752,
+        "tris": 3484,
+        "verts": 1997,
         "color": "#202634"
       },
       {
@@ -201,9 +201,9 @@
         "name": "MSI MEG MAESTRO 900R",
         "category": "PCCase",
         "file": "assets/3d/prepared/case_1.wglb",
-        "bytes": 243940,
-        "tris": 10883,
-        "verts": 4722,
+        "bytes": 243436,
+        "tris": 10449,
+        "verts": 4918,
         "color": "#202634"
       }
     ]

@@ -122,6 +122,11 @@ function weldByPosition(positions, indices) {
 }
 
 /// Decodes and welds one source GLB into flat arrays.
+///
+/// Node world transforms WAJIB diterapkan: GLB BuildCores menaruh
+/// geometri di matriks node (case NV5: 31/32 node ber-transform).
+/// Membaca POSITION mentah tanpa transform membuat semua panel
+/// menumpuk dalam kubus 2x2x2 di origin (render jadi slab rusak).
 async function loadGeometry(file) {
   let d = await io.read(file);
   d = await d.transform(dedup(), dequantize());
@@ -138,22 +143,48 @@ async function loadGeometry(file) {
   const positions = [];
   const indices = [];
   let base = 0;
-  for (const mesh of d.getRoot().listMeshes()) {
-    for (const prim of mesh.listPrimitives()) {
-      const pos = prim.getAttribute('POSITION');
-      if (!pos) continue;
-      const arr = pos.getArray();
-      for (let i = 0; i < arr.length; i++) positions.push(arr[i]);
-      const count = pos.getCount();
-      const idx = prim.getIndices();
-      if (idx) {
-        const ia = idx.getArray();
-        for (let i = 0; i < ia.length; i++) indices.push(ia[i] + base);
-      } else {
-        for (let i = 0; i < count; i++) indices.push(i + base);
+  const visit = (node, parent) => {
+    const local = node.getMatrix();
+    const world = new Array(16);
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        world[c * 4 + r] =
+          parent[r] * local[c * 4] +
+          parent[4 + r] * local[c * 4 + 1] +
+          parent[8 + r] * local[c * 4 + 2] +
+          parent[12 + r] * local[c * 4 + 3];
       }
-      base += count;
     }
+    const mesh = node.getMesh();
+    if (mesh) {
+      for (const prim of mesh.listPrimitives()) {
+        const pos = prim.getAttribute('POSITION');
+        if (!pos) continue;
+        const arr = pos.getArray();
+        for (let i = 0; i < arr.length; i += 3) {
+          const x = arr[i], y = arr[i + 1], z = arr[i + 2];
+          positions.push(
+            world[0] * x + world[4] * y + world[8] * z + world[12],
+            world[1] * x + world[5] * y + world[9] * z + world[13],
+            world[2] * x + world[6] * y + world[10] * z + world[14],
+          );
+        }
+        const count = pos.getCount();
+        const idx = prim.getIndices();
+        if (idx) {
+          const ia = idx.getArray();
+          for (let i = 0; i < ia.length; i++) indices.push(ia[i] + base);
+        } else {
+          for (let i = 0; i < count; i++) indices.push(i + base);
+        }
+        base += count;
+      }
+    }
+    for (const child of node.listChildren()) visit(child, world);
+  };
+  const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+  for (const scene of d.getRoot().listScenes()) {
+    for (const child of scene.listChildren()) visit(child, identity);
   }
   return weldByPosition(new Float32Array(positions), new Uint32Array(indices));
 }
@@ -291,11 +322,19 @@ async function main() {
       const geo = await loadGeometry(cand.path);
       if (!geo.positions.length) continue;
       if (geo.indices.length / 3 > cfg.budget) {
-        const ratio = cfg.budget / (geo.indices.length / 3);
-        const target = Math.floor(geo.indices.length / 3 * ratio) * 3;
-        const [dst] = MeshoptSimplifier.simplify(
-          geo.indices, geo.positions, 3, target, 0.02, [],
-        );
+        // Error adaptif: mesh tertentu (case kaca lengkung MAESTRO)
+        // mentok jauh di atas budget pada error 0.02 — longgarkan
+        // bertahap dari geometri ASLI sampai budget tercapai.
+        const target = cfg.budget * 3;
+        let err = 0.02;
+        let dst = geo.indices;
+        while (err <= 0.5) {
+          [dst] = MeshoptSimplifier.simplify(
+            geo.indices, geo.positions, 3, target, err, [],
+          );
+          if (dst.length / 3 <= cfg.budget * 1.05) break;
+          err *= 2.5;
+        }
         geo.indices = dst;
       }
       const packed0 = compact(geo.positions, geo.indices);

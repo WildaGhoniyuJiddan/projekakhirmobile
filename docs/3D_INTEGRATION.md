@@ -53,6 +53,8 @@ assets/3d/*.glb  (Draco, ±180 MB)
         │ node tool/prepare_3d.mjs
         ▼
   Draco decode
+  → terapkan transform node (world matrix) — geometri BuildCores
+    ditaruh di matriks node; tanpa ini semua panel menumpuk di origin
   → weld by position (seam vertex digabung)
   → Meshopt simplify (budget triangle per role)
   → hitung normal
