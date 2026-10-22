@@ -137,6 +137,8 @@ abstract final class AppStrings {
       'Belum ada alert. Buat dari hasil cek harga.';
   static const addWishlist = 'Simpan ke wishlist';
   static const wishlistAdded = 'Tersimpan ke wishlist.';
+  static const inWishlist = 'Di Wishlist';
+  static const wishlistRemoved = 'Dihapus dari wishlist.';
   static const addAlert = 'Buat alert harga';
   static const alertAdded = 'Alert harga dibuat. Kami cek tiap 15 menit.';
   static const targetPriceLabel = 'Target harga';

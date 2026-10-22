@@ -11,8 +11,11 @@ import 'package:worthbang/services/core/api_result.dart';
 import 'package:worthbang/services/data/local_catalog.dart';
 import 'package:worthbang/services/data/products_catalog.dart';
 import 'package:worthbang/services/features/personalization/personalization_engine.dart';
+import 'package:worthbang/services/features/wishlist_api.dart';
 import 'package:worthbang/utils/rupiah.dart';
 import 'package:worthbang/widgets/price_conversion_card.dart';
+import 'package:worthbang/widgets/product_action_dialogs.dart';
+import 'package:worthbang/l10n/dream_strings.dart';
 import 'package:worthbang/l10n/strings.dart';
 import 'package:worthbang/models/price_check_models.dart';
 import 'package:worthbang/screens/onboarding_screen.dart';
@@ -330,6 +333,233 @@ class _ShowcaseItem {
   final String? reason;
 }
 
+/// Isi lembar detail produk (dari ketuk kartu etalase): kartu konversi,
+/// baris tiga aksi (Wishlist / Alert Harga / Rakitan Impian), dan tombol
+/// Cek Harga. Punya state sendiri untuk toggle wishlist produk ini.
+class _ProductSheet extends ConsumerStatefulWidget {
+  const _ProductSheet({required this.product});
+
+  final NormalizedProduct product;
+
+  @override
+  ConsumerState<_ProductSheet> createState() => _ProductSheetState();
+}
+
+class _ProductSheetState extends ConsumerState<_ProductSheet> {
+  int? _wishlistId;
+  bool _wishlistKnown = true;
+  bool _busy = false;
+
+  NormalizedProduct get _product => widget.product;
+  String get _mode => _product.category == 'laptop' ? 'laptop' : 'pc';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWishlistState();
+  }
+
+  bool _matches(WishlistItem item) =>
+      item.query.trim().toLowerCase() == _product.name.trim().toLowerCase();
+
+  /// Status wishlist awal: best-effort — kegagalan baca menandai
+  /// "belum diketahui" dan dicek ulang saat tombol diketuk.
+  Future<void> _loadWishlistState() async {
+    try {
+      final items = await ref.read(wishlistApiProvider).getWishlist();
+      if (!mounted) return;
+      for (final item in items) {
+        if (_matches(item)) {
+          setState(() => _wishlistId = item.id);
+          break;
+        }
+      }
+    } catch (_) {
+      _wishlistKnown = false;
+    }
+  }
+
+  Future<void> _toggleWishlist() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final api = ref.read(wishlistApiProvider);
+      if (_wishlistId != null) {
+        await api.deleteWishlist(_wishlistId!);
+        if (!mounted) return;
+        setState(() => _wishlistId = null);
+        showMonexToast(context, AppStrings.wishlistRemoved);
+      } else {
+        if (!_wishlistKnown) {
+          // Preload gagal tadi: cek ulang dulu agar tidak dobel.
+          final items = await api.getWishlist();
+          _wishlistKnown = true;
+          for (final item in items) {
+            if (_matches(item)) {
+              if (mounted) setState(() => _wishlistId = item.id);
+              break;
+            }
+          }
+        }
+        if (_wishlistId != null) {
+          if (!mounted) return;
+          showMonexToast(context, AppStrings.wishlistAdded, isSuccess: true);
+          return;
+        }
+        final saved = await api.addWishlist(
+          query: _product.name,
+          mode: _mode,
+          targetPrice: _product.price,
+        );
+        if (!mounted) return;
+        setState(() => _wishlistId = saved.id);
+        showMonexToast(context, AppStrings.wishlistAdded, isSuccess: true);
+      }
+    } catch (e) {
+      if (mounted) showMonexToast(context, e.toString(), isError: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final inWishlist = _wishlistId != null;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+          MonexSpacing.screenPaddingH,
+          4,
+          MonexSpacing.screenPaddingH,
+          24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_product.name, style: theme.textTheme.titleMedium),
+            const SizedBox(height: 12),
+            PriceConversionCard(priceIdr: _product.price),
+            const SizedBox(height: 12),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _SheetActionButton(
+                      icon:
+                          inWishlist ? Icons.favorite : Icons.favorite_outline,
+                      label: inWishlist
+                          ? AppStrings.inWishlist
+                          : AppStrings.wishlistTab,
+                      active: inWishlist,
+                      onPressed: _busy ? null : _toggleWishlist,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _SheetActionButton(
+                      icon: Icons.notification_add_outlined,
+                      label: AppStrings.alertsTab,
+                      onPressed: () => showPriceAlertDialog(
+                        context,
+                        ref,
+                        query: _product.name,
+                        mode: _mode,
+                        initialTargetPrice: _product.price,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _SheetActionButton(
+                      icon: Icons.rocket_launch_outlined,
+                      label: DreamStrings.addFromResult,
+                      onPressed: () => showDreamBuildDialog(
+                        context,
+                        ref,
+                        partName: _product.name,
+                        price: _product.price,
+                        slot: dreamSlotFor(mode: _mode, query: _product.name),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            MonexPrimaryButton(
+              label: AppStrings.priceCheckTitle,
+              icon: Icons.price_check,
+              onPressed: () {
+                final navigator = Navigator.of(context);
+                navigator.pop();
+                navigator.push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => PriceCheckScreen(
+                      initialQuery: _product.name,
+                      initialMode: _mode,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Tombol aksi sekunder ringkas untuk lembar produk: ikon di atas,
+/// label pendek di bawah (boleh 2 baris). Gaya outline Monex yang sama
+/// dengan MonexSecondaryButton, dipadatkan agar tiga tombol muat
+/// sebaris tanpa overflow pada lebar 320px.
+class _SheetActionButton extends StatelessWidget {
+  const _SheetActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.active = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: active ? MonexColors.lime : scheme.onSurface,
+        side: BorderSide(
+          color: active ? MonexColors.lime : scheme.outlineVariant,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+        shape: const StadiumBorder(),
+        textStyle: const TextStyle(
+          fontFamily: kMonexFontFamily,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 20),
+          const SizedBox(height: 4),
+          Text(label, textAlign: TextAlign.center, maxLines: 2),
+        ],
+      ),
+    );
+  }
+}
+
 /// Section 'Buat Kamu': etalase awal menu Cari — grid produk
 /// ternormalisasi (ProductsCatalog) yang diurutkan mesin
 /// personalisasi lokal. Urutan = showcase() acak terbobot di kelompok
@@ -417,50 +647,13 @@ class _ForYouSectionState extends State<_ForYouSection> {
       // Telemetri personalisasi gagal = diam saja.
     }
     if (!mounted) return;
-    // Lembar detail produk: harga IDR + kartu konversi, lalu tombol
-    // lanjut ke alur Cek Harga yang sudah ada.
+    // Lembar detail produk: harga IDR + kartu konversi, baris aksi
+    // (Wishlist / Alert Harga / Rakitan Impian), lalu tombol lanjut
+    // ke alur Cek Harga yang sudah ada.
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (sheetContext) {
-        final theme = Theme.of(sheetContext);
-        return SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-              MonexSpacing.screenPaddingH,
-              4,
-              MonexSpacing.screenPaddingH,
-              24,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(product.name, style: theme.textTheme.titleMedium),
-                const SizedBox(height: 12),
-                PriceConversionCard(priceIdr: product.price),
-                const SizedBox(height: 12),
-                MonexPrimaryButton(
-                  label: AppStrings.priceCheckTitle,
-                  icon: Icons.price_check,
-                  onPressed: () {
-                    Navigator.of(sheetContext).pop();
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => PriceCheckScreen(
-                          initialQuery: product.name,
-                          initialMode:
-                              product.category == 'laptop' ? 'laptop' : 'pc',
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+      builder: (_) => _ProductSheet(product: product),
     );
   }
 
