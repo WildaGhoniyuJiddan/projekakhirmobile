@@ -25,6 +25,7 @@ abstract final class AppStrings {
   static const homeToolsSubtitle = 'Konversi mata uang dan zona waktu.';
   static const homeWishlistSubtitle = 'Simpan produk dan pantau target.';
   static const homeGameSubtitle = 'Tebak harga komponen PC.';
+  static const homeMiniGamesSubtitle = 'Tebak Harga dan Zero-G Thermal.';
   static const homeChatSubtitle = 'Tanya seputar PC dan laptop.';
   static const searchTitle = 'Cari';
   static const searchPlaceholder =
@@ -159,6 +160,12 @@ abstract final class AppStrings {
   static const laterButton = 'Nanti Saja';
   static const simulationSettingsFailed =
       'Tidak bisa membuka Pengaturan di perangkat ini.';
+
+  // Mini Games (hub dua game).
+  static const miniGamesTitle = 'Mini Games';
+  static const zeroGTitle = 'Zero-G Thermal';
+  static const zeroGSubtitle =
+      'Minigame 16-bit retro aplikasi thermal paste CPU';
 
   // Game Tebak Harga (T12).
   static const gameTitle = 'Tebak Harga';

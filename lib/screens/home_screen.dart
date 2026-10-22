@@ -7,13 +7,12 @@ import 'package:worthbang/l10n/dream_strings.dart';
 import 'package:worthbang/screens/builder_screen.dart';
 import 'package:worthbang/screens/dream_build_screen.dart';
 import 'package:worthbang/screens/chat_screen.dart';
-import 'package:worthbang/screens/game_screen.dart';
+import 'package:worthbang/screens/mini_games_screen.dart';
 import 'package:worthbang/screens/price_check_screen.dart';
 import 'package:worthbang/screens/search_screen.dart';
 import 'package:worthbang/screens/stores_screen.dart';
 import 'package:worthbang/screens/tools_screen.dart';
 import 'package:worthbang/screens/wishlist_screen.dart';
-import 'package:worthbang/screens/zero_g_thermal_screen.dart';
 import 'package:worthbang/widgets/app_logo.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -57,16 +56,10 @@ class HomeScreen extends StatelessWidget {
       page: () => const DreamBuildScreen(),
     ),
     _HomeMenuItem(
-      title: AppStrings.gameTitle,
-      subtitle: AppStrings.homeGameSubtitle,
+      title: AppStrings.miniGamesTitle,
+      subtitle: AppStrings.homeMiniGamesSubtitle,
       icon: Icons.sports_esports_outlined,
-      page: () => const GameScreen(),
-    ),
-    _HomeMenuItem(
-      title: 'Protokol Zero-G',
-      subtitle: 'Minigame 16-bit retro aplikasi thermal paste CPU',
-      icon: Icons.developer_board_rounded,
-      page: () => const ZeroGThermalScreen(),
+      page: () => const MiniGamesScreen(),
     ),
     _HomeMenuItem(
       title: AppStrings.chatTitle,
