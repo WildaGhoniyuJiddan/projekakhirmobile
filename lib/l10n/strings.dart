@@ -145,6 +145,18 @@ abstract final class AppStrings {
   static const checkAlertsNow = 'Cek alert sekarang';
   static const alertCheckNone =
       'Tidak ada alert yang terpicu saat ini.';
+  static const simulateNotification = 'Simulasi Notifikasi';
+  static const simulationSent =
+      'Notifikasi simulasi terkirim — cek panel notifikasi HP.';
+  static const simulationBlockedTitle = 'Notifikasi Sedang Nonaktif';
+  static const simulationBlockedBody =
+      'Izin notifikasi WorthBang sedang nonaktif, jadi simulasi '
+      'peringatan harga tidak bisa ditampilkan. Aktifkan izin '
+      'notifikasi lewat Pengaturan agar alert harga muncul.';
+  static const openSettingsButton = 'Buka Pengaturan';
+  static const laterButton = 'Nanti Saja';
+  static const simulationSettingsFailed =
+      'Tidak bisa membuka Pengaturan di perangkat ini.';
 
   // Game Tebak Harga (T12).
   static const gameTitle = 'Tebak Harga';

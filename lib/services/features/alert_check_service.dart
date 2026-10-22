@@ -7,6 +7,10 @@ import 'package:worthbang/screens/price_check_screen.dart'
     show priceCheckApiProvider;
 import 'alerts_api.dart';
 
+/// Notifier produksi (notifikasi lokal) — di-override fake di test.
+final priceAlertNotifierProvider =
+    Provider<PriceAlertNotifier>((ref) => LocalNotificationAlertNotifier());
+
 /// Provider service cek alert (async karena butuh SharedPreferences).
 final alertCheckServiceProvider =
     FutureProvider<AlertCheckService>((ref) async {
@@ -14,7 +18,7 @@ final alertCheckServiceProvider =
   return AlertCheckService(
     alertsApi: ref.watch(alertsApiProvider),
     priceCheckApi: ref.watch(priceCheckApiProvider),
-    notifier: LocalNotificationAlertNotifier(),
+    notifier: ref.watch(priceAlertNotifierProvider),
     dedup: SharedPrefsDedupStore(prefs),
   );
 });

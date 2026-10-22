@@ -13,10 +13,20 @@ class NotificationService {
   static const _channelName = 'Price Alert';
 
   /// Inisialisasi sekali dari [main]. Aman dipanggil ulang.
+  ///
+  /// Anti-bocor: flag permintaan izin Darwin (iOS) EKSPLISIT `false` —
+  /// tanpa ini plugin jatuh ke default `true` dan dialog izin sistem
+  /// bisa muncul sebelum login. Izin hanya diminta lewat
+  /// NotificationPermissionService pasca-login.
   Future<void> init() async {
     if (_ready) return;
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const settings = InitializationSettings(android: android);
+    const darwin = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+    const settings = InitializationSettings(android: android, iOS: darwin);
     await _plugin.initialize(settings: settings);
     await _plugin
         .resolvePlatformSpecificImplementation<
@@ -25,7 +35,10 @@ class NotificationService {
           _channelId,
           _channelName,
           description: 'Notifikasi saat harga menyentuh target',
-          importance: Importance.high,
+          // Catatan: Android mengunci importance channel sejak pertama
+          // dibuat — instalasi lama tetap di importance yang lama
+          // (heads-up tetap jalan), instalasi baru langsung max.
+          importance: Importance.max,
         ));
     _ready = true;
   }
@@ -43,12 +56,20 @@ class NotificationService {
       title: 'Harga $query turun!',
       body:
           'Rp $currentPrice ≤ target Rp $targetPrice — cek sekarang.',
+      // Heads-up juga saat aplikasi sedang dibuka: Android max/high,
+      // iOS present alert + banner.
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,
           _channelName,
-          importance: Importance.high,
+          importance: Importance.max,
           priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBanner: true,
+          presentList: true,
+          presentSound: true,
         ),
       ),
     );

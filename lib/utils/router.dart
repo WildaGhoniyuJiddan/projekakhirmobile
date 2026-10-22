@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:worthbang/providers/auth_controller.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
+import 'package:worthbang/services/core/notification_permissions.dart';
 import 'package:worthbang/screens/login_screen.dart';
 import 'package:worthbang/screens/register_screen.dart';
 import 'package:worthbang/screens/tab_screens.dart';
@@ -92,21 +95,53 @@ final routerProvider = Provider<GoRouter>((ref) {
 
 /// Shell bottom navigation: 4 tab sesuai PRD (Beranda, Cari, Riwayat, Profil).
 /// Banner offline (T15) tampil di atas konten semua tab.
-class BottomNavShell extends ConsumerWidget {
+///
+/// Shell ini hanya ter-render untuk user terautentikasi (guard router),
+/// jadi initState-nya adalah titik paling hulu pasca-login — tempat
+/// prompt izin notifikasi sekali-tanya dipasang (frame pertama).
+class BottomNavShell extends ConsumerStatefulWidget {
   const BottomNavShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
+  @override
+  ConsumerState<BottomNavShell> createState() => _BottomNavShellState();
+}
+
+class _BottomNavShellState extends ConsumerState<BottomNavShell> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_promptNotificationPermission());
+    });
+  }
+
+  /// Minta izin notifikasi sekali pasca-login. Semua kegagalan hanya
+  /// dicatat — penolakan/kegagalan izin tidak boleh mengganggu shell.
+  Future<void> _promptNotificationPermission() async {
+    if (!mounted) return;
+    try {
+      final service =
+          await ref.read(notificationPermissionServiceProvider.future);
+      if (!mounted) return;
+      await service.ensurePromptedOnce();
+    } catch (e) {
+      debugPrint('[NotifPermission] prompt awal gagal: $e');
+    }
+  }
+
   void _goBranch(int index) {
-    navigationShell.goBranch(
+    widget.navigationShell.goBranch(
       index,
       // Kembali ke root tab bila tab aktif di-tap ulang.
-      initialLocation: index == navigationShell.currentIndex,
+      initialLocation: index == widget.navigationShell.currentIndex,
     );
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final navigationShell = widget.navigationShell;
     return Scaffold(
       body: Column(
         children: [

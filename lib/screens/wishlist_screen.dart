@@ -5,9 +5,41 @@ import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
 import 'package:worthbang/utils/rupiah.dart';
 import 'package:worthbang/l10n/strings.dart';
+import 'package:worthbang/services/core/notification_permissions.dart';
 import 'package:worthbang/services/features/alert_check_service.dart';
 import 'package:worthbang/services/features/alerts_api.dart';
 import 'package:worthbang/services/features/wishlist_api.dart';
+
+/// Persentase penurunan harga untuk simulasi (di rentang 10–15%).
+const simulationDropPercent = 12;
+
+/// Id notifikasi khusus simulasi fallback (di luar rentang id alert).
+const simulationFallbackId = 990001;
+
+/// Payload simulasi notifikasi: alert AKTIF pertama dengan harga
+/// disimulasikan turun [simulationDropPercent]% di bawah targetnya.
+/// Bila belum ada alert aktif, fallback ke produk contoh realistis.
+({int id, String query, int currentPrice, int targetPrice})
+    buildSimulationPayload(List<PriceAlert>? alerts) {
+  final active = alerts?.where((a) => a.isActive).firstOrNull;
+  if (active != null) {
+    final dropped =
+        (active.targetPrice * (100 - simulationDropPercent) / 100).round();
+    return (
+      id: active.id,
+      query: active.query,
+      currentPrice: dropped,
+      targetPrice: active.targetPrice,
+    );
+  }
+  const target = 5200000;
+  return (
+    id: simulationFallbackId,
+    query: 'RTX 4060',
+    currentPrice: (target * (100 - simulationDropPercent) / 100).round(),
+    targetPrice: target,
+  );
+}
 
 /// Layar gabungan Wishlist & Alert Harga (dua tab).
 class WishlistAlertsScreen extends ConsumerStatefulWidget {
@@ -23,6 +55,7 @@ class _WishlistAlertsScreenState
   List<WishlistItem>? _wishlist;
   List<PriceAlert>? _alerts;
   bool _checking = false;
+  bool _simulating = false;
 
   @override
   void initState() {
@@ -79,6 +112,69 @@ class _WishlistAlertsScreenState
       }
     } finally {
       if (mounted) setState(() => _checking = false);
+    }
+  }
+
+  /// Simulasi notifikasi price alert lewat jalur PRODUKSI
+  /// ([PriceAlertNotifier.showPriceAlert]) — untuk demo/pengujian
+  /// tanpa menunggu harga benar-benar turun.
+  ///
+  /// Pre-flight WAJIB: status izin dicek real-time. Bila nonaktif,
+  /// notifikasi DIBATALKAN dan pengguna diarahkan ke Pengaturan —
+  /// tidak ada kegagalan diam-diam.
+  Future<void> _simulateNotification() async {
+    setState(() => _simulating = true);
+    try {
+      final perm =
+          await ref.read(notificationPermissionServiceProvider.future);
+      final enabled = await perm.isEnabled();
+      if (!mounted) return;
+      if (!enabled) {
+        await _showPermissionBlockedDialog(perm);
+        return;
+      }
+      final payload = buildSimulationPayload(_alerts);
+      await ref.read(priceAlertNotifierProvider).showPriceAlert(
+            id: payload.id,
+            query: payload.query,
+            currentPrice: payload.currentPrice,
+            targetPrice: payload.targetPrice,
+          );
+      if (!mounted) return;
+      showMonexToast(context, AppStrings.simulationSent, isSuccess: true);
+    } catch (e) {
+      if (mounted) {
+        showMonexToast(context, e.toString(), isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _simulating = false);
+    }
+  }
+
+  Future<void> _showPermissionBlockedDialog(
+      NotificationPermissionService perm) async {
+    final open = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text(AppStrings.simulationBlockedTitle),
+        content: const Text(AppStrings.simulationBlockedBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text(AppStrings.laterButton),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(AppStrings.openSettingsButton),
+          ),
+        ],
+      ),
+    );
+    if (open != true) return;
+    final opened = await perm.openNotificationSettings();
+    if (!opened && mounted) {
+      showMonexToast(context, AppStrings.simulationSettingsFailed,
+          isError: true);
     }
   }
 
@@ -161,6 +257,19 @@ class _WishlistAlertsScreenState
             icon: Icons.refresh_rounded,
             label: AppStrings.checkAlertsNow,
             loading: _checking,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            MonexSpacing.screenPaddingH,
+            0,
+            MonexSpacing.screenPaddingH,
+            MonexSpacing.screenPaddingH,
+          ),
+          child: MonexSecondaryButton(
+            onPressed: _simulating ? null : _simulateNotification,
+            icon: Icons.notifications_active_outlined,
+            label: AppStrings.simulateNotification,
           ),
         ),
         Expanded(
