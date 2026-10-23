@@ -133,53 +133,68 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.searchScreenTitle)),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            MonexSpacing.screenPaddingH,
-            MonexSpacing.screenPaddingV,
-            MonexSpacing.screenPaddingH,
-            24,
-          ),
-          children: [
-            MonexSegmentedControl<String>(
-              value: _mode,
-              onChanged: (v) => setState(() => _mode = v),
-              items: const [
-                MonexSegment(
-                  value: 'pc',
-                  label: 'Komponen PC',
-                  icon: Icons.memory_outlined,
-                ),
-                MonexSegment(
-                  value: 'laptop',
-                  label: 'Laptop',
-                  icon: Icons.laptop_mac_outlined,
-                ),
-              ],
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await _forYouKey.currentState?.reload();
+          },
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              MonexSpacing.screenPaddingH,
+              MonexSpacing.screenPaddingV,
+              MonexSpacing.screenPaddingH,
+              24,
             ),
-            const SizedBox(height: MonexSpacing.sectionGap),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _query,
-                    textInputAction: TextInputAction.search,
-                    decoration: const InputDecoration(
-                      labelText: AppStrings.queryLabel,
-                      prefixIcon: Icon(Icons.search),
-                    ),
-                    onSubmitted: (_) => _search(),
+            children: [
+              MonexSegmentedControl<String>(
+                value: _mode,
+                onChanged: (v) => setState(() => _mode = v),
+                items: const [
+                  MonexSegment(
+                    value: 'pc',
+                    label: 'Komponen PC',
+                    icon: Icons.memory_outlined,
                   ),
-                ),
-                const SizedBox(width: 8),
-                MonexPrimaryButton(
-                  label: AppStrings.searchButton,
-                  expanded: false,
-                  loading: state is ApiLoading,
-                  onPressed: state is ApiLoading ? null : _search,
-                ),
-              ],
-            ),
+                  MonexSegment(
+                    value: 'laptop',
+                    label: 'Laptop',
+                    icon: Icons.laptop_mac_outlined,
+                  ),
+                ],
+              ),
+              const SizedBox(height: MonexSpacing.sectionGap),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _query,
+                      textInputAction: TextInputAction.search,
+                      decoration: InputDecoration(
+                        labelText: AppStrings.queryLabel,
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: _query.text.isNotEmpty || state != null
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                tooltip: 'Hapus pencarian',
+                                onPressed: () {
+                                  _query.clear();
+                                  setState(() => _state = null);
+                                },
+                              )
+                            : null,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                      onSubmitted: (_) => _search(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  MonexPrimaryButton(
+                    label: AppStrings.searchButton,
+                    expanded: false,
+                    loading: state is ApiLoading,
+                    onPressed: state is ApiLoading ? null : _search,
+                  ),
+                ],
+              ),
             if (state == null) ...[
               const SizedBox(height: MonexSpacing.sectionGap),
               _ForYouSection(key: _forYouKey, mode: _mode),
@@ -321,8 +336,9 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 /// Satu kartu etalase: produk ternormalisasi + alasan personalisasi.
@@ -582,6 +598,7 @@ class _ForYouSectionState extends State<_ForYouSection> {
   @override
   void initState() {
     super.initState();
+    PersonalizationEngine.onboardingVersion.addListener(_load);
     _load();
   }
 
@@ -589,6 +606,12 @@ class _ForYouSectionState extends State<_ForYouSection> {
   void didUpdateWidget(_ForYouSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.mode != widget.mode) _load();
+  }
+
+  @override
+  void dispose() {
+    PersonalizationEngine.onboardingVersion.removeListener(_load);
+    super.dispose();
   }
 
   /// Muat (ulang) etalase — dipanggil juga setelah onboarding selesai

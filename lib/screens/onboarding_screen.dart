@@ -28,7 +28,7 @@ const _budgetRanges = <_BudgetRange>[
   _BudgetRange('< 5 juta', 0, 5000000),
   _BudgetRange('5–10 juta', 5000000, 10000000),
   _BudgetRange('10–20 juta', 10000000, 20000000),
-  _BudgetRange('> 20 juta', 20000000, 100000000000),
+  _BudgetRange('> 20 juta', 20000000, 40000000),
 ];
 
 /// Nilai yang disimpan = kode engine ('gaming', 'amd', ...);

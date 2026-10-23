@@ -12,6 +12,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/local_catalog.dart';
@@ -233,6 +234,10 @@ class PersonalizationEngine {
   static const onboardingKey = 'wb_onboarding_v1';
   static const maxEvents = 500;
 
+  /// Notifier pembaruan profil preferensi agar UI yang sedang aktif
+  /// (mis. etalase Cari Produk) dapat langsung memuat ulang data.
+  static final ValueNotifier<int> onboardingVersion = ValueNotifier<int>(0);
+
   /// Bobot massa prior onboarding (setara 10 event viewDetail segar).
   static const onboardingPriorWeight = 10.0;
 
@@ -289,6 +294,7 @@ class PersonalizationEngine {
       onboardingKey,
       jsonEncode({...p.toJson(), 'savedAt': _onboardingAt!.toIso8601String()}),
     );
+    onboardingVersion.value++;
   }
 
   Future<bool> hasOnboarding() async => _onboarding != null;
