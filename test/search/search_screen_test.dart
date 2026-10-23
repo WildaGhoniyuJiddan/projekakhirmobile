@@ -8,12 +8,32 @@ import 'package:worthbang/services/core/api_exception.dart';
 import 'package:worthbang/services/features/price_check_api.dart';
 
 class _MockPriceCheckApi extends PriceCheckApi {
-  _MockPriceCheckApi({this.onSearch}) : super();
+  _MockPriceCheckApi({this.onSearch, this.onSuggest}) : super();
 
   final Future<List<PriceComparison>> Function({
     required String mode,
     required String query,
   })? onSearch;
+
+  final Future<List<String>> Function({
+    required String section,
+    required String query,
+  })? onSuggest;
+
+  @override
+  Future<List<String>> suggest({
+    required String section,
+    required String query,
+    int limit = 8,
+  }) async {
+    if (onSuggest != null) {
+      return onSuggest!(section: section, query: query);
+    }
+    return [
+      'GeForce RTX 3060 12GB',
+      'GeForce RTX 3060 Ti',
+    ];
+  }
 
   @override
   Future<List<PriceComparison>> search({
@@ -198,6 +218,133 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(capturedMode, 'laptop');
+    });
+
+    testWidgets('Search suggestion muncul saat mengetik query di mode PC dan dapat diklik', (tester) async {
+      String? suggestSection;
+      String? suggestQuery;
+      String? searchSection;
+      String? searchQuery;
+
+      final mockApi = _MockPriceCheckApi(
+        onSuggest: ({required section, required query}) async {
+          suggestSection = section;
+          suggestQuery = query;
+          return ['GeForce RTX 3060 12GB', 'GeForce RTX 3060 Ti'];
+        },
+        onSearch: ({required mode, required query}) async {
+          searchSection = mode;
+          searchQuery = query;
+          return [
+            const PriceComparison(
+              title: 'GeForce RTX 3060 12GB',
+              price: 4200000,
+              source: 'tokopedia',
+              similarity: 0.95,
+              condition: 'new',
+            ),
+          ];
+        },
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            priceCheckApiProvider.overrideWithValue(mockApi),
+          ],
+          child: const MaterialApp(
+            home: SearchFilterScreen(),
+          ),
+        ),
+      );
+
+      final queryField = find.byType(TextField).first;
+      await tester.enterText(queryField, 'RTX 3060');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+
+      expect(suggestSection, 'pc');
+      expect(suggestQuery, 'RTX 3060');
+      expect(find.text('GeForce RTX 3060 12GB'), findsOneWidget);
+      expect(find.text('GeForce RTX 3060 Ti'), findsOneWidget);
+
+      // Tap suggestion to search
+      await tester.tap(find.text('GeForce RTX 3060 12GB'));
+      await tester.pumpAndSettle();
+
+      expect(searchSection, 'pc');
+      expect(searchQuery, 'GeForce RTX 3060 12GB');
+      expect(find.text('tokopedia • baru'), findsOneWidget);
+    });
+
+    testWidgets('Search suggestion bekerja untuk mode Laptop', (tester) async {
+      String? suggestSection;
+      String? suggestQuery;
+
+      final mockApi = _MockPriceCheckApi(
+        onSuggest: ({required section, required query}) async {
+          suggestSection = section;
+          suggestQuery = query;
+          return ['Lenovo ThinkPad X1 Carbon', 'ThinkPad T14 Gen 3'];
+        },
+        onSearch: ({required mode, required query}) async => [],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            priceCheckApiProvider.overrideWithValue(mockApi),
+          ],
+          child: const MaterialApp(
+            home: SearchFilterScreen(),
+          ),
+        ),
+      );
+
+      // Switch to laptop mode
+      await tester.tap(find.text('Laptop'));
+      await tester.pumpAndSettle();
+
+      final queryField = find.byType(TextField).first;
+      await tester.enterText(queryField, 'ThinkPad');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+
+      expect(suggestSection, 'laptop');
+      expect(suggestQuery, 'ThinkPad');
+      expect(find.text('Lenovo ThinkPad X1 Carbon'), findsOneWidget);
+    });
+
+    testWidgets('Tombol hapus membersihkan query dan saran pencarian', (tester) async {
+      final mockApi = _MockPriceCheckApi(
+        onSuggest: ({required section, required query}) async {
+          return ['GeForce RTX 3060'];
+        },
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            priceCheckApiProvider.overrideWithValue(mockApi),
+          ],
+          child: const MaterialApp(
+            home: SearchFilterScreen(),
+          ),
+        ),
+      );
+
+      final queryField = find.byType(TextField).first;
+      await tester.enterText(queryField, 'RTX');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+
+      expect(find.text('GeForce RTX 3060'), findsOneWidget);
+
+      // Tap clear icon
+      await tester.tap(find.byIcon(Icons.clear));
+      await tester.pumpAndSettle();
+
+      expect(find.text('GeForce RTX 3060'), findsNothing);
     });
   });
 }

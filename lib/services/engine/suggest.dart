@@ -54,7 +54,7 @@ final RegExp _ssdRe = RegExp(r'\bssd\b|nvme|m\.?2\b', caseSensitive: false);
 final RegExp _hddRe = RegExp(r'\bhdd\b|harddisk|hard disk', caseSensitive: false);
 final RegExp _tbRe = RegExp(r'(\d)\s*tb\b', caseSensitive: false);
 
-final Set<String> _sections = {..._canonical.keys, 'gpu', 'cpu', 'motherboard', 'laptop'};
+final Set<String> _sections = {..._canonical.keys, 'gpu', 'cpu', 'motherboard', 'laptop', 'pc'};
 const int _maxLabel = 90;
 
 int _matchScore(
@@ -180,31 +180,38 @@ class SuggestEngine {
   ) {
     final retail = data.retail;
     final catalog = <String, num>{};
-    if (section == 'gpu' || section == 'cpu' || section == 'motherboard') {
-      final list = retail[section];
-      if (list is List) {
-        for (final prod in list) {
-          if (prod is! Map) continue;
-          final model = (prod['model'] as String? ?? '').trim();
-          final price = prod['price'];
-          if (model.isNotEmpty && price is int) {
-            catalog[model.length > 90 ? model.substring(0, 90) : model] = price;
+    final sectionsToCheck = (section == 'pc')
+        ? const ['gpu', 'cpu', 'motherboard', 'ram', 'storage']
+        : [section];
+
+    for (final s in sectionsToCheck) {
+      if (s == 'gpu' || s == 'cpu' || s == 'motherboard') {
+        final list = retail[s];
+        if (list is List) {
+          for (final prod in list) {
+            if (prod is! Map) continue;
+            final model = (prod['model'] as String? ?? '').trim();
+            final price = prod['price'];
+            if (model.isNotEmpty && price is int) {
+              catalog[model.length > 90 ? model.substring(0, 90) : model] =
+                  price;
+            }
           }
         }
-      }
-    } else if (section == 'ram') {
-      final m = retail['ram_canonical'];
-      if (m is Map) {
-        m.forEach((k, v) {
-          if (v is num) catalog[k.toString()] = v;
-        });
-      }
-    } else if (section == 'storage') {
-      final m = retail['storage_canonical'];
-      if (m is Map) {
-        m.forEach((k, v) {
-          if (v is num) catalog[k.toString()] = v;
-        });
+      } else if (s == 'ram') {
+        final m = retail['ram_canonical'];
+        if (m is Map) {
+          m.forEach((k, v) {
+            if (v is num) catalog[k.toString()] = v;
+          });
+        }
+      } else if (s == 'storage') {
+        final m = retail['storage_canonical'];
+        if (m is Map) {
+          m.forEach((k, v) {
+            if (v is num) catalog[k.toString()] = v;
+          });
+        }
       }
     }
 
@@ -216,7 +223,8 @@ class SuggestEngine {
           .where((s) => s.isNotEmpty)
           .join(' ');
       if (label.isEmpty) return;
-      final score = _matchScore(_stokens(label), _ssq(label), queryTokens, querySq);
+      final score =
+          _matchScore(_stokens(label), _ssq(label), queryTokens, querySq);
       if (score <= 0 && queryTokens.isNotEmpty) return;
       final key = _normKey(label);
       final rank = (score, 0);
@@ -263,9 +271,13 @@ class SuggestEngine {
     if (cond.isEmpty) cond = '';
     final condNorm = cond.isEmpty ? null : cond;
 
+    final detectedType = componentTypeFromQuery(qlow);
+    final effectiveSec = (sec == 'pc') ? (detectedType ?? 'pc') : sec;
+
     // Pool BARU: murni katalog retail — tanpa listing marketplace.
     if (condNorm == 'baru') {
-      final retail = _retailCandidates(sec, _stokens(qlow), _ssq(qlow));
+      final retail =
+          _retailCandidates(effectiveSec, _stokens(qlow), _ssq(qlow));
       final sliced = retail.take(limit).toList();
       if (sliced.isNotEmpty) return sliced;
       // ponytail: katalog retail belum ada utk section ini -> fallback
@@ -284,22 +296,25 @@ class SuggestEngine {
       if (label.isEmpty || label.toLowerCase().contains('http')) return;
       final low = label.toLowerCase();
       // Section RAM/storage: saran judul harus benar-benar soal RAM/SSD.
-      final keywords = _sectionKeywords[sec];
+      final keywords = _sectionKeywords[effectiveSec];
       if (keywords != null) {
         if (!keywords.any((k) => low.contains(k)) ||
             _notStandaloneRe.hasMatch(low)) {
           return;
         }
-      } else if (sec == 'gpu' &&
-          RegExp(r'\b(?:frame|bracket|riser|backplate|support)\b').hasMatch(low)) {
+      } else if (effectiveSec == 'gpu' &&
+          RegExp(r'\b(?:frame|bracket|riser|backplate|support)\b')
+              .hasMatch(low)) {
         return; // aksesori VGA, bukan kartunya
       }
       // Filter relevansi seragam utk SEMUA pool.
-      if (queryTokens.isNotEmpty && !isRelevantPcListing(qlow, low, sec)) {
+      if (queryTokens.isNotEmpty &&
+          !isRelevantPcListing(qlow, low, effectiveSec)) {
         return;
       }
       final key = _normKey(label);
-      final score = _matchScore(_stokens(label), _ssq(label), queryTokens, querySq);
+      final score =
+          _matchScore(_stokens(label), _ssq(label), queryTokens, querySq);
       if (score <= 0 && queryTokens.isNotEmpty) return;
       if (label.length > _maxLabel) {
         final head = label.substring(0, _maxLabel);
@@ -316,24 +331,42 @@ class SuggestEngine {
     }
 
     // 1) Kanonik RAM/storage + median harga real dari listing.
-    final market = await _marketPrices(sec);
-    for (final label in _canonical[sec] ?? const <String>[]) {
-      final prices = market[label] ?? const <int>[];
-      add(
-        label,
-        math.max(prices.length, 20),
-        prices.isEmpty ? null : medianOf(prices),
-        bonus: 15,
-      );
+    final canonicalSecs = (sec == 'pc')
+        ? (detectedType != null && _canonical.containsKey(detectedType)
+            ? [detectedType]
+            : (detectedType == null
+                ? const ['ram', 'storage']
+                : const <String>[]))
+        : (_canonical.containsKey(sec) ? [sec] : const <String>[]);
+    for (final csec in canonicalSecs) {
+      final market = await _marketPrices(csec);
+      for (final label in _canonical[csec] ?? const <String>[]) {
+        final prices = market[label] ?? const <int>[];
+        add(
+          label,
+          math.max(prices.length, 20),
+          prices.isEmpty ? null : medianOf(prices),
+          bonus: 15,
+        );
+      }
     }
 
     // 2) Katalog komponen (model bersih hasil agregasi).
-    if (sec == 'gpu' || sec == 'cpu' || sec == 'motherboard') {
-      final rows = await listings.pcComponents(tokens: [sec]);
+    if (sec == 'gpu' || sec == 'cpu' || sec == 'motherboard' || sec == 'pc') {
+      final queryTokensParam = (sec == 'pc' && detectedType != null)
+          ? [detectedType]
+          : (sec == 'pc' ? const <String>[] : [sec]);
+      final rows = await listings.pcComponents(tokens: queryTokensParam);
       final collapsed = <String, (int, double?)>{};
       for (final row in rows) {
         final typeVal = row['component_type'];
-        if (typeVal != null && typeVal != sec) continue;
+        if (typeVal != null && sec != 'pc' && typeVal != sec) continue;
+        if (typeVal != null &&
+            sec == 'pc' &&
+            detectedType != null &&
+            typeVal != detectedType) {
+          continue;
+        }
         final model = (row['model'] as String? ?? '').toUpperCase();
         if (model.isEmpty) continue;
         final samples = (row['sample_count'] as num?)?.toInt() ?? 0;
@@ -369,8 +402,11 @@ class SuggestEngine {
         count++;
         final brand = row['brand'] as String? ?? '';
         final model = row['model'] as String? ?? '';
-        final brandWords =
-            brand.toLowerCase().split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toSet();
+        final brandWords = brand
+            .toLowerCase()
+            .split(RegExp(r'\s+'))
+            .where((s) => s.isNotEmpty)
+            .toSet();
         final trimmed = model
             .split(RegExp(r'\s+'))
             .where((w) => w.isNotEmpty && !brandWords.contains(w.toLowerCase()))
@@ -398,9 +434,18 @@ class SuggestEngine {
         if (row.price <= 50000) continue;
         count++;
         final title = row.title;
-        if (!isRelevantPcListing(title, title, sec)) continue;
+        if (!isRelevantPcListing(title, title, effectiveSec)) continue;
         add(title, 1, row.price.toDouble());
       }
+    }
+
+    // 5) Basis katalog retail terverifikasi selalu disertakan
+    final retailCands =
+        _retailCandidates(effectiveSec, queryTokens, querySq);
+    for (final r in retailCands) {
+      final lbl = r['label'] as String?;
+      final prc = (r['price'] as num?)?.toDouble();
+      if (lbl != null) add(lbl, 10, prc, bonus: 10);
     }
 
     final ranked = candidates.values.toList();

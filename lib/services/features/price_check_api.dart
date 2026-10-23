@@ -5,6 +5,7 @@ import 'package:worthbang/services/engine/analysis_engine.dart';
 import 'package:worthbang/services/engine/dataset.dart';
 import 'package:worthbang/services/engine/suggest.dart';
 import 'package:worthbang/services/core/supabase_listings_source.dart';
+import 'package:worthbang/services/data/products_catalog.dart';
 
 /// Akses analisis harga — sekarang dihitung LOKAL oleh engine Dart
 /// (port analysis.py/suggest.py) dengan listing dari Supabase.
@@ -139,17 +140,60 @@ class PriceCheckApi {
     required String query,
     int limit = 8,
   }) async {
-    if (query.trim().length < 2) return const [];
-    final engine = await _ensureSuggest();
-    final rows = await engine.suggestComponents(
+    final cleanQ = query.trim();
+    if (cleanQ.length < 2) return const [];
+    try {
+      final engine = await _ensureSuggest();
+      final rows = await engine.suggestComponents(
+        section: section,
+        q: cleanQ,
+        limit: limit,
+      );
+      final suggestions = rows
+          .map((r) => (r['label'] as String? ?? '').trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+      if (suggestions.isNotEmpty) return suggestions;
+    } catch (_) {
+      // Abaikan kegagalan engine/network, lanjut ke fallback katalog lokal.
+    }
+
+    // Fallback terpercaya dari ProductsCatalog bundled
+    return _fallbackCatalogSuggest(
       section: section,
-      q: query,
+      query: cleanQ,
       limit: limit,
     );
-    return rows
-        .map((r) => (r['label'] as String? ?? '').trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
+  }
+
+  Future<List<String>> _fallbackCatalogSuggest({
+    required String section,
+    required String query,
+    required int limit,
+  }) async {
+    try {
+      final all = await ProductsCatalog.load();
+      final isLaptop = section.toLowerCase() == 'laptop';
+      final tokens = query
+          .toLowerCase()
+          .split(RegExp(r'\s+'))
+          .where((t) => t.isNotEmpty)
+          .toList();
+      if (tokens.isEmpty) return const [];
+      return all
+          .where((p) {
+            if (isLaptop ? p.category != 'laptop' : p.category == 'laptop') {
+              return false;
+            }
+            final nameLow = p.name.toLowerCase();
+            return tokens.every(nameLow.contains);
+          })
+          .map((p) => p.name)
+          .take(limit)
+          .toList();
+    } catch (_) {
+      return const [];
+    }
   }
 
   PriceComparison _mapComparison(ComparisonData c) => PriceComparison(

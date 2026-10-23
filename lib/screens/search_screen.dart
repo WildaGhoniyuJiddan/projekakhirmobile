@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -38,6 +39,8 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
   String _mode = 'pc';
   ApiResult<List<PriceComparison>>? _state;
   SearchFilter _filter = const SearchFilter();
+  List<String> _suggestions = const [];
+  Timer? _debounce;
 
   /// Gerbang onboarding personalisasi: ditawarkan maksimal sekali per
   /// sesi aplikasi, saat menu Cari PERTAMA kali dibuka, dan hanya bila
@@ -73,19 +76,49 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _query.dispose();
     _maxPrice.dispose();
     super.dispose();
   }
 
+  void _onQueryChanged(String value) {
+    _debounce?.cancel();
+    final trimmed = value.trim();
+    if (trimmed.length < 2) {
+      if (_suggestions.isNotEmpty) {
+        setState(() => _suggestions = const []);
+      }
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 250), () async {
+      try {
+        final list = await ref
+            .read(priceCheckApiProvider)
+            .suggest(section: _mode, query: trimmed);
+        if (mounted) {
+          setState(() => _suggestions = list);
+        }
+      } catch (_) {
+        if (mounted && _suggestions.isNotEmpty) {
+          setState(() => _suggestions = const []);
+        }
+      }
+    });
+  }
+
   Future<void> _search() async {
+    _debounce?.cancel();
     final queryText = _query.text.trim();
     if (queryText.length < 2) {
       showMonexToast(context, AppStrings.queryMin, isError: true);
       return;
     }
     FocusScope.of(context).unfocus();
-    setState(() => _state = const ApiLoading());
+    setState(() {
+      _suggestions = const [];
+      _state = const ApiLoading();
+    });
     try {
       final comparisons = await ref
           .read(priceCheckApiProvider)
@@ -147,7 +180,15 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
             children: [
               MonexSegmentedControl<String>(
                 value: _mode,
-                onChanged: (v) => setState(() => _mode = v),
+                onChanged: (v) {
+                  setState(() {
+                    _mode = v;
+                    _suggestions = const [];
+                  });
+                  if (_query.text.trim().length >= 2) {
+                    _onQueryChanged(_query.text);
+                  }
+                },
                 items: const [
                   MonexSegment(
                     value: 'pc',
@@ -176,13 +217,20 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                                 icon: const Icon(Icons.clear),
                                 tooltip: 'Hapus pencarian',
                                 onPressed: () {
+                                  _debounce?.cancel();
                                   _query.clear();
-                                  setState(() => _state = null);
+                                  setState(() {
+                                    _suggestions = const [];
+                                    _state = null;
+                                  });
                                 },
                               )
                             : null,
                       ),
-                      onChanged: (_) => setState(() {}),
+                      onChanged: (v) {
+                        _onQueryChanged(v);
+                        setState(() {});
+                      },
                       onSubmitted: (_) => _search(),
                     ),
                   ),
@@ -195,6 +243,33 @@ class _SearchFilterScreenState extends ConsumerState<SearchFilterScreen> {
                   ),
                 ],
               ),
+              if (_suggestions.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                MonexSurfaceCard(
+                  padding: EdgeInsets.zero,
+                  radius: MonexSpacing.radiusMd,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final s in _suggestions)
+                        MonexTransactionTile(
+                          title: s,
+                          leadingIcon: Icons.search,
+                          leadingBackground:
+                              theme.colorScheme.surfaceContainerHighest,
+                          leadingColor: theme.textTheme.bodySmall?.color ??
+                              MonexColors.textSecondary,
+                          onTap: () {
+                            _debounce?.cancel();
+                            _query.text = s;
+                            setState(() => _suggestions = const []);
+                            _search();
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             if (state == null) ...[
               const SizedBox(height: MonexSpacing.sectionGap),
               _ForYouSection(key: _forYouKey, mode: _mode),
