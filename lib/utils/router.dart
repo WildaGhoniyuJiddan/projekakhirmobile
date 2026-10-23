@@ -10,6 +10,7 @@ import 'package:worthbang/services/core/notification_permissions.dart';
 import 'package:worthbang/screens/login_screen.dart';
 import 'package:worthbang/screens/register_screen.dart';
 import 'package:worthbang/screens/tab_screens.dart';
+import 'package:worthbang/widgets/logout_action.dart';
 import 'package:worthbang/widgets/offline_banner.dart';
 import 'package:worthbang/l10n/strings.dart';
 
@@ -152,31 +153,50 @@ class _BottomNavShellState extends ConsumerState<BottomNavShell> {
       // TIDAK ada FAB di shell: FAB global menutupi konten semua menu
       // yang di-push di atasnya. FAB chatbot tinggal di HomeScreen —
       // hanya tampil di Beranda root (keputusan Dan 2026-10-21).
-      bottomNavigationBar: MonexBottomNavBar(
-        selectedIndex: navigationShell.currentIndex,
-        onSelected: _goBranch,
-        items: const [
-          MonexNavItem(
-            icon: Icons.home_outlined,
-            selectedIcon: Icons.home,
-            label: AppStrings.tabHome,
+      //
+      // Bar bawah: 4 destinasi tab + tombol AKSI logout di pojok paling
+      // KANAN (bukan destinasi — tidak mengganti tab; mengetuknya hanya
+      // membuka dialog konfirmasi keluar, jalur yang sama dengan Profil).
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          border: Border(
+            top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
           ),
-          MonexNavItem(
-            icon: Icons.search_outlined,
-            selectedIcon: Icons.search,
-            label: AppStrings.tabSearch,
-          ),
-          MonexNavItem(
-            icon: Icons.history_outlined,
-            selectedIcon: Icons.history,
-            label: AppStrings.tabHistory,
-          ),
-          MonexNavItem(
-            icon: Icons.person_outline,
-            selectedIcon: Icons.person,
-            label: AppStrings.tabProfile,
-          ),
-        ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: MonexBottomNavBar(
+                selectedIndex: navigationShell.currentIndex,
+                onSelected: _goBranch,
+                items: const [
+                  MonexNavItem(
+                    icon: Icons.home_outlined,
+                    selectedIcon: Icons.home,
+                    label: AppStrings.tabHome,
+                  ),
+                  MonexNavItem(
+                    icon: Icons.search_outlined,
+                    selectedIcon: Icons.search,
+                    label: AppStrings.tabSearch,
+                  ),
+                  MonexNavItem(
+                    icon: Icons.history_outlined,
+                    selectedIcon: Icons.history,
+                    label: AppStrings.tabHistory,
+                  ),
+                  MonexNavItem(
+                    icon: Icons.person_outline,
+                    selectedIcon: Icons.person,
+                    label: AppStrings.tabProfile,
+                  ),
+                ],
+              ),
+            ),
+            const LogoutNavButton(),
+          ],
+        ),
       ),
     );
   }

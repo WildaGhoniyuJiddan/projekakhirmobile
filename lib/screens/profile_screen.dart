@@ -14,6 +14,7 @@ import 'package:worthbang/services/data/sync_queue.dart';
 import 'package:worthbang/services/data/sync_service.dart';
 import 'package:worthbang/screens/onboarding_screen.dart';
 import 'package:worthbang/services/features/profile_api.dart';
+import 'package:worthbang/widgets/logout_action.dart';
 
 /// Tab Profil: foto, nama, pengaturan (biometric/tilt/tema), feedback, logout.
 class ProfileContentScreen extends ConsumerStatefulWidget {
@@ -204,26 +205,8 @@ class _ProfileContentScreenState
   }
 
   Future<void> _logout() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(AppStrings.logoutTitle),
-        content: const Text(AppStrings.logoutConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(AppStrings.cancelButton),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(AppStrings.logoutButton),
-          ),
-        ],
-      ),
-    );
-    if (ok == true) {
-      await ref.read(authControllerProvider.notifier).logout();
-    }
+    // Jalur bersama dengan tombol logout di navbar bawah.
+    await confirmLogout(context, ref);
   }
 
   @override

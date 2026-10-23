@@ -119,6 +119,19 @@ abstract final class AppStrings {
   static const cheapestLabel = 'TERMURAH';
   static const demoLocationNote =
       'Izin lokasi tidak diberikan — memakai lokasi demo Jakarta.';
+  static const straightDistanceLabel = 'Jarak lurus';
+  static const navigateToStoreButton = 'Navigasi ke sini';
+  static const endNavigationButton = 'Akhiri Navigasi';
+  static const followAgainButton = 'Ikuti Lagi';
+  static const calculatingRoute = 'Menghitung rute...';
+  static const recalculatingRoute = 'Menghitung ulang rute...';
+  static const arrivedAtPrefix = 'Sudah sampai di';
+  static const routeFallbackToast =
+      'Rute jalan tidak tersedia, menampilkan garis penunjuk.';
+  static const navigationNeedsLocation =
+      'Navigasi membutuhkan lokasi asli Anda. Aktifkan GPS/izin lokasi lalu coba lagi.';
+  static const remainingDistanceLabel = 'Sisa jarak';
+  static const etaLabel = 'Estimasi waktu';
 
   // Konverter (T10).
   static const toolsTitle = 'Konverter';
