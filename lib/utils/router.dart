@@ -164,38 +164,56 @@ class _BottomNavShellState extends ConsumerState<BottomNavShell> {
             top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
           ),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: MonexBottomNavBar(
-                selectedIndex: navigationShell.currentIndex,
-                onSelected: _goBranch,
-                items: const [
-                  MonexNavItem(
-                    icon: Icons.home_outlined,
-                    selectedIcon: Icons.home,
-                    label: AppStrings.tabHome,
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: LogoutNavButton.barHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: 4,
+                  child: Builder(
+                    builder: (navContext) => MediaQuery.removePadding(
+                      context: navContext,
+                      removeBottom: true,
+                      child: MonexBottomNavBar(
+                        showBorder: false,
+                        selectedIndex: navigationShell.currentIndex,
+                        onSelected: _goBranch,
+                        items: const [
+                          MonexNavItem(
+                            icon: Icons.home_outlined,
+                            selectedIcon: Icons.home,
+                            label: AppStrings.tabHome,
+                          ),
+                          MonexNavItem(
+                            icon: Icons.search_outlined,
+                            selectedIcon: Icons.search,
+                            label: AppStrings.tabSearch,
+                          ),
+                          MonexNavItem(
+                            icon: Icons.history_outlined,
+                            selectedIcon: Icons.history,
+                            label: AppStrings.tabHistory,
+                          ),
+                          MonexNavItem(
+                            icon: Icons.person_outline,
+                            selectedIcon: Icons.person,
+                            label: AppStrings.tabProfile,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  MonexNavItem(
-                    icon: Icons.search_outlined,
-                    selectedIcon: Icons.search,
-                    label: AppStrings.tabSearch,
-                  ),
-                  MonexNavItem(
-                    icon: Icons.history_outlined,
-                    selectedIcon: Icons.history,
-                    label: AppStrings.tabHistory,
-                  ),
-                  MonexNavItem(
-                    icon: Icons.person_outline,
-                    selectedIcon: Icons.person,
-                    label: AppStrings.tabProfile,
-                  ),
-                ],
-              ),
+                ),
+                const Expanded(
+                  flex: 1,
+                  child: LogoutNavButton(),
+                ),
+              ],
             ),
-            const LogoutNavButton(),
-          ],
+          ),
         ),
       ),
     );

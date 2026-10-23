@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:worthbang/core/theme/monex_theme.dart' show kMonexFontFamily;
 import 'package:worthbang/l10n/strings.dart';
 import 'package:worthbang/providers/auth_controller.dart';
 
@@ -37,8 +38,9 @@ Future<void> confirmLogout(BuildContext context, WidgetRef ref) async {
 /// mengetuknya tidak mengganti tab aktif — hanya membuka dialog
 /// konfirmasi keluar lewat [confirmLogout].
 ///
-/// Ukuran & warna diselaraskan dengan NavigationBar tema Monex
-/// (tinggi 68, ikon di atas label) agar menyatu dengan bar.
+/// Ukuran & posisi diselaraskan dengan NavigationDestination tema Monex
+/// (tinggi 68, indicator height 32, icon size 22, label font 11) agar
+/// sejajar sempurna secara vertikal dan proporsional dengan menu lain.
 class LogoutNavButton extends ConsumerWidget {
   const LogoutNavButton({super.key});
 
@@ -48,25 +50,53 @@ class LogoutNavButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final color = theme.colorScheme.onSurfaceVariant;
+    final navTheme = NavigationBarTheme.of(context);
+    final labelStyle = navTheme.labelTextStyle?.resolve({}) ??
+        TextStyle(
+          fontFamily: kMonexFontFamily,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: theme.colorScheme.onSurfaceVariant,
+        );
+    final iconColor = navTheme.iconTheme?.resolve({})?.color ??
+        theme.colorScheme.onSurfaceVariant;
+    final iconSize = navTheme.iconTheme?.resolve({})?.size ?? 22.0;
+
     return Tooltip(
       message: AppStrings.logoutButton,
-      child: SizedBox(
-        width: 64,
-        height: barHeight,
-        child: InkWell(
+      child: Material(
+        color: Colors.transparent,
+        child: InkResponse(
           key: const ValueKey('nav-logout-button'),
           onTap: () => confirmLogout(context, ref),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.logout_rounded, size: 24, color: color),
-              const SizedBox(height: 2),
-              Text(
-                AppStrings.logoutButton,
-                style: theme.textTheme.labelSmall?.copyWith(color: color),
-              ),
-            ],
+          containedInkWell: true,
+          highlightShape: BoxShape.rectangle,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  height: 32,
+                  child: Center(
+                    child: Icon(
+                      Icons.logout_rounded,
+                      size: iconSize,
+                      color: iconColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  AppStrings.logoutButton,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: labelStyle,
+                ),
+              ],
+            ),
           ),
         ),
       ),

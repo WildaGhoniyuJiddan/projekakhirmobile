@@ -116,6 +116,20 @@ void main() {
     expect(logoutCenter.dx, greaterThan(profileCenter.dx));
     // Destinasi tab tetap tepat 4 — logout adalah aksi, bukan tab.
     expect(find.byType(NavigationDestination), findsNWidgets(4));
+
+    // Sejajar vertikal: ikon logout sejajar dengan ikon menu Profil.
+    final logoutIconCenter =
+        tester.getCenter(find.byIcon(Icons.logout_rounded));
+    final profileIconCenter =
+        tester.getCenter(find.byIcon(Icons.person_outline));
+    expect((logoutIconCenter.dy - profileIconCenter.dy).abs(), lessThanOrEqualTo(1.0));
+
+    // Proporsional horizontal: lebar tombol logout sama dengan lebar tiap tab (1/5 layar).
+    final tabWidth =
+        tester.getSize(find.byType(NavigationDestination).at(0)).width;
+    final logoutWidth =
+        tester.getSize(find.byType(LogoutNavButton)).width;
+    expect((tabWidth - logoutWidth).abs(), lessThanOrEqualTo(1.0));
   });
 
   testWidgets('ketuk logout → dialog; Batal → tetap di shell, tak logout',

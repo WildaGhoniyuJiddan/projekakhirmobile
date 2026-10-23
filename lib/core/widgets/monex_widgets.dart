@@ -1353,15 +1353,34 @@ class MonexBottomNavBar extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelected,
     required this.items,
+    this.showBorder = true,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final List<MonexNavItem> items;
+  final bool showBorder;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final navBar = NavigationBar(
+      selectedIndex: selectedIndex,
+      onDestinationSelected: onSelected,
+      destinations: [
+        for (final item in items)
+          NavigationDestination(
+            icon: Icon(item.icon),
+            selectedIcon: Icon(item.selectedIcon ?? item.icon),
+            label: item.label,
+          ),
+      ],
+    );
+
+    if (!showBorder) {
+      return navBar;
+    }
+
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
@@ -1369,18 +1388,7 @@ class MonexBottomNavBar extends StatelessWidget {
           top: BorderSide(color: theme.colorScheme.outlineVariant),
         ),
       ),
-      child: NavigationBar(
-        selectedIndex: selectedIndex,
-        onDestinationSelected: onSelected,
-        destinations: [
-          for (final item in items)
-            NavigationDestination(
-              icon: Icon(item.icon),
-              selectedIcon: Icon(item.selectedIcon ?? item.icon),
-              label: item.label,
-            ),
-        ],
-      ),
+      child: navBar,
     );
   }
 }
