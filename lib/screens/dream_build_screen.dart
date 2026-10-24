@@ -3,15 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-import 'package:worthbang/config/supabase_config.dart';
 import 'package:worthbang/l10n/dream_strings.dart';
 import 'package:worthbang/services/data/local_catalog.dart';
 import 'package:worthbang/services/features/dream_build_api.dart';
 import 'package:worthbang/utils/rupiah.dart';
 
-/// URL halaman verifikasi publik kartu (Edge Function verify-build).
-String dreamVerifyUrl(String buildId) =>
-    '$supabaseUrl/functions/v1/verify-build?id=$buildId';
+/// URL transaksi blockchain Polygonscan Amoy.
+String dreamPolygonscanUrl(String txHash) =>
+    'https://amoy.polygonscan.com/tx/$txHash';
 
 /// Daftar kartu Rakitan Impian + buat baru.
 class DreamBuildScreen extends ConsumerStatefulWidget {
@@ -480,13 +479,18 @@ class _DreamBuildEditorState extends ConsumerState<DreamBuildEditor> {
             const SizedBox(height: 16),
             Center(
               child: QrImageView(
-                data: dreamVerifyUrl(_build.id),
+                data: dreamPolygonscanUrl(_build.txHash!),
                 size: 180,
                 backgroundColor: Colors.white,
               ),
             ),
             const SizedBox(height: 8),
-            const Center(child: Text(DreamStrings.verifyQrLabel)),
+            const Center(
+              child: Text(
+                'Pindai QR untuk membuka transaksi di Polygonscan',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
           ],
           const SizedBox(height: 24),
           TextButton.icon(
