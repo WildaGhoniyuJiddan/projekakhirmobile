@@ -40,9 +40,20 @@ class _FakeGateway implements NotificationPermissionGateway {
   }
 }
 
-/// Notifier fake: mencatat payload showPriceAlert.
+/// Notifier fake: mencatat payload schedulePriceAlert dan showPriceAlert.
 class _FakeNotifier implements PriceAlertNotifier {
+  final List<(int, String, int, int)> scheduled = [];
   final List<(int, String, int, int)> sent = [];
+
+  @override
+  Future<void> schedulePriceAlert({
+    required int id,
+    required String query,
+    required int currentPrice,
+    required int targetPrice,
+  }) async {
+    scheduled.add((id, query, currentPrice, targetPrice));
+  }
 
   @override
   Future<void> showPriceAlert({
@@ -258,7 +269,7 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('izin aktif → showPriceAlert terpicu payload harga turun',
+    testWidgets('izin aktif → schedulePriceAlert terpicu payload harga turun',
         (tester) async {
       final db = await _seededDb();
       addTearDown(db.close);
@@ -270,8 +281,10 @@ void main() {
       await tester.tap(find.text(AppStrings.simulateNotification));
       await tester.pumpAndSettle();
 
-      expect(notifier.sent, hasLength(1));
-      final (_, query, current, target) = notifier.sent.single;
+      // Demo kini menjadwalkan (3 detik), bukan tampil langsung.
+      expect(notifier.scheduled, hasLength(1));
+      expect(notifier.sent, isEmpty);
+      final (_, query, current, target) = notifier.scheduled.single;
       expect(query, 'RTX 4060');
       expect(target, 4300000);
       expect(current, 3784000);
@@ -281,7 +294,7 @@ void main() {
     });
 
     testWidgets(
-        'izin ditolak → showPriceAlert ditahan, dialog Buka Pengaturan tampil',
+        'izin ditolak → schedulePriceAlert ditahan, dialog Buka Pengaturan tampil',
         (tester) async {
       final db = await _seededDb();
       addTearDown(db.close);
@@ -293,6 +306,7 @@ void main() {
       await tester.tap(find.text(AppStrings.simulateNotification));
       await tester.pumpAndSettle();
 
+      expect(notifier.scheduled, isEmpty);
       expect(notifier.sent, isEmpty);
       expect(find.text(AppStrings.simulationBlockedTitle), findsOneWidget);
       expect(find.text(AppStrings.openSettingsButton), findsOneWidget);

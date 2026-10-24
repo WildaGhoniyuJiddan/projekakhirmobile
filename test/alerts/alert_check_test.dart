@@ -45,6 +45,21 @@ class _FakeNotifier implements PriceAlertNotifier {
   }) async {
     sent.add((id, query, currentPrice, targetPrice));
   }
+
+  // implements = tanpa warisan implementasi default, jadi wajib ada.
+  @override
+  Future<void> schedulePriceAlert({
+    required int id,
+    required String query,
+    required int currentPrice,
+    required int targetPrice,
+  }) =>
+      showPriceAlert(
+        id: id,
+        query: query,
+        currentPrice: currentPrice,
+        targetPrice: targetPrice,
+      );
 }
 
 class _FakeDedup implements AlertDedupStore {

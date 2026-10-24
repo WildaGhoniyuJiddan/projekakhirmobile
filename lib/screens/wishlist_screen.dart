@@ -116,8 +116,12 @@ class _WishlistAlertsScreenState
   }
 
   /// Simulasi notifikasi price alert lewat jalur PRODUKSI
-  /// ([PriceAlertNotifier.showPriceAlert]) — untuk demo/pengujian
+  /// ([PriceAlertNotifier.schedulePriceAlert]) — untuk demo/pengujian
   /// tanpa menunggu harga benar-benar turun.
+  ///
+  /// Dijadwalkan 3 detik lewat OS (bukan tampil langsung), supaya
+  /// penguji sempat keluar dari aplikasi dan membuktikan notifikasi
+  /// tetap muncul saat aplikasi tidak dibuka.
   ///
   /// Pre-flight WAJIB: status izin dicek real-time. Bila nonaktif,
   /// notifikasi DIBATALKAN dan pengguna diarahkan ke Pengaturan —
@@ -134,14 +138,15 @@ class _WishlistAlertsScreenState
         return;
       }
       final payload = buildSimulationPayload(_alerts);
-      await ref.read(priceAlertNotifierProvider).showPriceAlert(
+      await ref.read(priceAlertNotifierProvider).schedulePriceAlert(
             id: payload.id,
             query: payload.query,
             currentPrice: payload.currentPrice,
             targetPrice: payload.targetPrice,
           );
       if (!mounted) return;
-      showMonexToast(context, AppStrings.simulationSent, isSuccess: true);
+      showMonexToast(context, AppStrings.simulationScheduled,
+          isSuccess: true);
     } catch (e) {
       if (mounted) {
         showMonexToast(context, e.toString(), isError: true);

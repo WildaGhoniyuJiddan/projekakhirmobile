@@ -165,6 +165,9 @@ abstract final class AppStrings {
   static const simulateNotification = 'Simulasi Notifikasi';
   static const simulationSent =
       'Notifikasi simulasi terkirim — cek panel notifikasi HP.';
+  static const simulationScheduled =
+      'Notifikasi simulasi dijadwalkan 3 detik lagi — keluar dari '
+      'aplikasi sekarang untuk mengetes.';
   static const simulationBlockedTitle = 'Notifikasi Sedang Nonaktif';
   static const simulationBlockedBody =
       'Izin notifikasi WorthBang sedang nonaktif, jadi simulasi '

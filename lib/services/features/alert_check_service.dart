@@ -31,6 +31,22 @@ abstract class PriceAlertNotifier {
     required int currentPrice,
     required int targetPrice,
   });
+
+  /// Jadwalkan alert lewat OS (default = tampil langsung, supaya fake
+  /// lama tetap jalan). Produksi meng-override ke
+  /// [NotificationService.schedulePriceAlert].
+  Future<void> schedulePriceAlert({
+    required int id,
+    required String query,
+    required int currentPrice,
+    required int targetPrice,
+  }) =>
+      showPriceAlert(
+        id: id,
+        query: query,
+        currentPrice: currentPrice,
+        targetPrice: targetPrice,
+      );
 }
 
 class LocalNotificationAlertNotifier implements PriceAlertNotifier {
@@ -42,6 +58,20 @@ class LocalNotificationAlertNotifier implements PriceAlertNotifier {
     required int targetPrice,
   }) =>
       NotificationService.instance.showPriceAlert(
+        id: id,
+        query: query,
+        currentPrice: currentPrice,
+        targetPrice: targetPrice,
+      );
+
+  @override
+  Future<void> schedulePriceAlert({
+    required int id,
+    required String query,
+    required int currentPrice,
+    required int targetPrice,
+  }) =>
+      NotificationService.instance.schedulePriceAlert(
         id: id,
         query: query,
         currentPrice: currentPrice,
