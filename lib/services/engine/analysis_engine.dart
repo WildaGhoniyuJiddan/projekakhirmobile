@@ -417,6 +417,25 @@ int _upperMedian(List<int> prices) {
 // Mesin analisis
 // ---------------------------------------------------------------------------
 
+/// Normalisasi kondisi input ke kosakata DB ('new'/'second'/'any').
+/// Cermin pemetaan SearchFilter (DB -> UI) dibalik: 'baru' -> 'new',
+/// 'bekas' -> 'second'. 'new'/'second'/'any' lolos apa adanya;
+/// kosong/tak dikenal -> 'any'. Dipakai di semua perbandingan
+/// request.condition di bawah supaya input UI tak pernah mengosongkan
+/// pool (bug: 'bekas' != 'second' membuat filter kondisi tak cocok).
+String canonicalCondition(String? condition) {
+  switch ((condition ?? '').toLowerCase().trim()) {
+    case 'baru':
+    case 'new':
+      return 'new';
+    case 'bekas':
+    case 'second':
+      return 'second';
+    default:
+      return 'any';
+  }
+}
+
 class _Scored {
   _Scored(this.sim, this.row, this.cleanTitle);
   final double sim;
@@ -567,10 +586,11 @@ class AnalysisEngine {
     final matchingExact = scoredExact.where((i) => i.sim >= 0.75).toList();
     final matchingFamily = scoredFamily.where((i) => i.sim >= 0.65).toList();
 
-    // Pisahkan per kondisi
-    final wantedCond = request.condition;
+    // Pisahkan per kondisi (input UI dikanonikalisasi dulu: 'bekas'
+    // -> 'second', 'baru' -> 'new', supaya filter cocok dengan nilai DB).
+    final wantedCond = canonicalCondition(request.condition);
     List<_Scored> exactCond, familyCond, otherCond;
-    if (wantedCond != null && wantedCond.isNotEmpty && wantedCond != 'any') {
+    if (wantedCond != 'any') {
       exactCond = matchingExact
           .where((i) => (i.row.condition ?? 'new') == wantedCond)
           .toList();
@@ -630,14 +650,12 @@ class AnalysisEngine {
     }
 
     // Isi dari kondisi lain hanya bila user tidak memilih kondisi spesifik.
-    if ((wantedCond == null || wantedCond.isEmpty || wantedCond == 'any') &&
-        pool.length < 10 &&
-        otherCond.isNotEmpty) {
+    if (wantedCond == 'any' && pool.length < 10 && otherCond.isNotEmpty) {
       pool.addAll(otherCond.take(10 - pool.length));
     }
 
     final retailComparisons =
-        _retailComparisons(request.query, ctype, request.condition);
+        _retailComparisons(request.query, ctype, wantedCond);
     if (pool.isEmpty) return retailComparisons;
 
     // Urutkan: kemiripan tertinggi, lalu kedekatan dengan median.
@@ -709,7 +727,8 @@ class AnalysisEngine {
     String? componentType,
     String? condition,
   ) {
-    if (condition == 'second' || condition == 'bekas' || componentType == 'laptop') {
+    if (canonicalCondition(condition) == 'second' ||
+        componentType == 'laptop') {
       return [];
     }
     final catalog = data.retail;
@@ -1003,13 +1022,14 @@ class AnalysisEngine {
     }
 
     final List<(double, _LaptopRow)> selected;
-    if (request.condition == 'new') {
+    final cond = canonicalCondition(request.condition);
+    if (cond == 'new') {
       final selNew = processPool(scoredNew, 16);
       final selUsed = processPool(scoredUsed, 8);
       selected = selNew.isNotEmpty
           ? [...selNew, ...selUsed]
           : processPool([...scoredUsed, ...scoredNew], 24);
-    } else if (request.condition == 'second') {
+    } else if (cond == 'second') {
       final selUsed = processPool(scoredUsed, 16);
       final selNew = processPool(scoredNew, 8);
       selected = selUsed.isNotEmpty
@@ -1247,10 +1267,12 @@ class AnalysisEngine {
     int? usedRef = usedPrices.isNotEmpty ? _upperMedian(usedPrices) : null;
 
     // Harga pembanding primer berdasarkan preferensi kondisi user
+    // (dikanonikalisasi: 'bekas' -> 'second', 'baru' -> 'new').
+    final cond = canonicalCondition(request.condition);
     final List<int> primaryPrices;
-    if (request.condition == 'new' && newPrices.length >= 2) {
+    if (cond == 'new' && newPrices.length >= 2) {
       primaryPrices = newPrices;
-    } else if (request.condition == 'second' && usedPrices.length >= 2) {
+    } else if (cond == 'second' && usedPrices.length >= 2) {
       primaryPrices = usedPrices;
     } else {
       primaryPrices =
@@ -1283,14 +1305,13 @@ class AnalysisEngine {
         models.isFallbackEnabled(mlCategory) &&
         comparisons.length < 5) {
       // Pengecualian anchor (perilaku lama dipertahankan): 0 pembanding
-      // + kondisi bukan bekas/second + anchor retail ada -> JANGAN
+      // + kondisi bukan second + anchor retail ada -> JANGAN
       // preempt dengan ML; biarkan blok anchor di bawah yang jalan.
-      // Untuk kondisi bekas/second pengecualian ini TIDAK berlaku
+      // Untuk kondisi second pengecualian ini TIDAK berlaku
       // (blok anchor lama mensyaratkan condition != 'second', dan
       // spesifikasi Fase C mematok ML untuk sudut ini).
       final anchorPreempts = comparisons.isEmpty &&
-          request.condition != 'second' &&
-          request.condition != 'bekas' &&
+          cond != 'second' &&
           newPriceAnchor(request.query, request.componentType) != null;
       if (!anchorPreempts) {
         final ml = mlEstimateFor(
@@ -1304,7 +1325,7 @@ class AnalysisEngine {
               (request.gpu != null && request.gpu!.isNotEmpty) ? request.gpu : null,
           ramGb: request.ramGb,
           storageGb: request.storageGb,
-          condition: request.condition,
+          condition: cond,
         );
         if (ml != null) {
           // Skor/verdict/delta konsisten dengan titik estimasi ML
@@ -1340,7 +1361,7 @@ class AnalysisEngine {
     // pengecualian di atas, yang memang tidak menyalakan ML).
     if (!mlFired &&
         (result.verdict == 'data terbatas' || compsFinal.isEmpty) &&
-        request.condition != 'second') {
+        cond != 'second') {
       final refNew = newPriceAnchor(request.query, request.componentType);
       if (refNew != null) {
         result = scorePrice(request.price, [refNew], isNewReference: true);
@@ -1362,7 +1383,7 @@ class AnalysisEngine {
     }
 
     final crossAdvice = _generateCrossMarketAdvice(
-      condition: request.condition,
+      condition: cond,
       price: request.price,
       newRef: newRef,
       usedRef: usedRef,
