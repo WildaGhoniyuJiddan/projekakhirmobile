@@ -8,9 +8,8 @@ tidak berubah sejak diterbitkan.
 
 - Kontrak: `DreamBuildRegistry.sol` (Solidity ^0.8.20, tanpa dependensi)
 - Deploy: `deploy.mjs` (ethers v6, baca env — tidak ada key ter-hardcode)
-- Penerbitan dari aplikasi: Edge Function `supabase/functions/publish-build`
-- Verifikasi publik: Edge Function `supabase/functions/verify-build`
-  (URL dari QR di aplikasi: `<SUPABASE_URL>/functions/v1/verify-build?id=<uuid kartu>`)
+- Verifikasi publik: QR di aplikasi langsung membuka transaksi di Polygonscan Amoy
+  (`https://amoy.polygonscan.com/tx/<tx_hash>`)
 
 ## Spek kanonik WB-DREAM-v1 (kontrak bersama Dart / TypeScript / chain)
 
@@ -86,15 +85,13 @@ Test Dart yang membuktikan nilai yang sama:
    RPC_URL=https://rpc-amoy.polygon.technology PRIVATE_KEY=0x... node deploy.mjs
    ```
    Catat alamat kontrak dari output.
-5. **Pasang secret Supabase** (Edge Function `publish-build` &
-   `verify-build`) — JANGAN pernah commit nilai ini / masukkan ke APK:
+5. **Pasang secret Supabase** (Edge Function `publish-build`) — JANGAN pernah commit nilai ini / masukkan ke APK:
    - `CHAIN_RPC_URL` = `https://rpc-amoy.polygon.technology`
    - `CHAIN_PRIVATE_KEY` = private key wallet proyek (**hanya**
      `publish-build`)
    - `CHAIN_CONTRACT_ADDRESS` = alamat kontrak hasil langkah 4
-6. **Deploy kedua Edge Function** (`publish-build` dengan `verify_jwt`
-   aktif, `verify-build` publik) lewat jalur deploy Supabase yang biasa
-   dipakai proyek ini.
+6. **Deploy Edge Function** (`publish-build` dengan `verify_jwt`
+   aktif) lewat jalur deploy Supabase yang biasa dipakai proyek ini.
 
 Tanpa langkah 5, `publish-build` menjawab `503 chain belum
 dikonfigurasi` dan aplikasi tetap bisa menyimpan draft seperti biasa.
