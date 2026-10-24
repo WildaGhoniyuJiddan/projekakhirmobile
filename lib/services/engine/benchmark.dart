@@ -200,14 +200,132 @@ class Benchmark {
     caseSensitive: false,
   );
 
-  /// Port resolve_cpu_laptop(): CPU laptop -> entri PassMark (katalog
-  /// mobile persis, lalu desktop, lalu proksi famili+tier terdekat).
-  BenchEntry? resolveCpuLaptop(String? text) {
-    final m = _cpuRe.firstMatch(text ?? '');
+  /// Pola baru CPU laptop (A4, port `tools/ml/train_price_models.py`):
+  /// bare iX, Core tanpa i, Ultra 3 digit, Apple kunci eksak.
+  static final RegExp _bareIxRe =
+      RegExp(r'\bi([3579])\s*-?\s*([1-9]\d{3,4}[a-z]{0,3})\b');
+  static final RegExp _coreNoIRe =
+      RegExp(r'core\s*([579])\s*-?\s*([1-9]\d{2}[a-z]{0,3})\b');
+  static final RegExp _ultra3Re =
+      RegExp(r'ultra\s*([579])\s*-?\s*([1-9]\d{2}[a-z]{0,3})\b');
+  static final RegExp _appleChipRe = RegExp(r'\bm([1234])\b');
+
+  /// Kunci Apple eksak (persis APPLE_*_KEYS Python). Dipakai hanya bila
+  /// kuncinya ADA di katalog — skor tidak pernah dikarang.
+  static const _appleBaseKeys = <String, String>{
+    '1': 'apple m1 8 core 3200 mhz',
+    '2': 'apple m2 8 core 3500 mhz',
+    '3': 'apple m3 8 core',
+    '4': 'apple m4 10 core',
+  };
+  static const _appleProKeys = <String, String>{
+    '1': 'apple m1 pro 10 core 3200 mhz',
+    '2': 'apple m2 pro 10 core 3480 mhz',
+    '3': 'apple m3 pro 11 core',
+    '4': 'apple m4 pro 12 core',
+  };
+  static const _appleMaxKeys = <String, String>{
+    '1': 'apple m1 max 10 core 3200 mhz',
+    '2': 'apple m2 max 12 core 3680 mhz',
+    '3': 'apple m3 max 14 core',
+    '4': 'apple m4 max 14 core',
+  };
+
+  /// True bila match pada [start] tidak didahului huruf/hyphen (menolak
+  /// 'octa-core', 'dual-core', 'quad-core'). Pengganti lookbehind
+  /// (?<![a-z-]) Python — lookbehind tidak portabel di semua RegExp Dart.
+  static bool _cleanStart(String low, int start) {
+    if (start == 0) return true;
+    final prev = low[start - 1];
+    return !RegExp(r'[a-z-]').hasMatch(prev);
+  }
+
+  /// Pola baru -> (full kanonik, tag), atau null. Urutan: bare iX,
+  /// Core tanpa i, Ultra 3 digit. Persis `_new_cpu_full` Python.
+  static (String, String)? _newCpuFull(String low) {
+    for (final m in _bareIxRe.allMatches(low)) {
+      return ('core i${m.group(1)} ${m.group(2)}', 'bare_ix');
+    }
+    for (final m in _coreNoIRe.allMatches(low)) {
+      if (!_cleanStart(low, m.start)) continue;
+      return ('core ${m.group(1)} ${m.group(2)}', 'core_no_i');
+    }
+    for (final m in _ultra3Re.allMatches(low)) {
+      if (!_cleanStart(low, m.start)) continue;
+      return ('ultra ${m.group(1)} ${m.group(2)}', 'ultra_3');
+    }
+    return null;
+  }
+
+  /// Entri Apple eksak, atau null. Persis `_apple_cpu_entry` Python:
+  /// butuh konteks apple/macbook; kualifikasi pro/max hanya bila langsung
+  /// mengikuti chip; 'M2 2280'/'2230' (ukuran SSD) selalu dilewati.
+  ({BenchEntry entry, String key})? _appleCpuEntry(String low) {
+    if (!low.contains('apple') &&
+        !low.contains('macbook') &&
+        !low.contains('mac book')) {
+      return null;
+    }
+    final m = _appleChipRe.firstMatch(low);
     if (m == null) return null;
-    final full = m.group(0)!.toLowerCase();
-    final catalog = data.benchCatalog('cpu');
-    final mobile = data.benchCatalog('cpu_mobile');
+    final tail = low.substring(m.end);
+    if (RegExp(r'^\s+22[38]0\b').hasMatch(tail)) return null;
+    final table = RegExp(r'^\s+max\b').hasMatch(tail)
+        ? _appleMaxKeys
+        : RegExp(r'^\s+pro\b').hasMatch(tail)
+            ? _appleProKeys
+            : _appleBaseKeys;
+    final key = table[m.group(1)];
+    if (key == null) return null;
+    for (final cat in <Map<String, dynamic>>[
+      data.benchCatalog('cpu_mobile'),
+      data.benchCatalog('cpu'),
+    ]) {
+      final entry = cat[key];
+      if (entry is Map) {
+        final e = entry.cast<String, dynamic>();
+        final score = _numOf(e, 'score');
+        if (score != null && score > 0) return (entry: e, key: key);
+      }
+    }
+    return null;
+  }
+
+  /// Port `resolve_cpu_laptop()` + pola baru A4: CPU laptop -> entri
+  /// PassMark (katalog mobile persis, lalu desktop, lalu proksi
+  /// famili+tier terdekat), beserta full kanonik dan tag
+  /// ('old'/'bare_ix'/'core_no_i'/'ultra_3'/'apple'/'none').
+  ///
+  /// Keputusan paritas Fase C: engine hanya memakai entry hasil resolve
+  /// untuk prediksi ML — full/tag TIDAK diteruskan ke pemanggil selain
+  /// tes parity, karena fitur latih laptop hanya memakai skor resolve
+  /// (`ln_cpu_passmark`); full hanya menjadi kunci grup latih, yang tak
+  /// berperan saat inferensi. Proksi TIDAK menjangkau kunci 3 digit
+  /// Core/Ultra (sama seperti Python: `_cpuRe` kunci juga menuntut
+  /// 4-5 digit).
+  ({BenchEntry? entry, String? full, String tag}) resolveCpuLaptopDetailed(
+    String? text,
+  ) {
+    final low = (text ?? '').toLowerCase();
+    final m = _cpuRe.firstMatch(low);
+    late final String full;
+    late final String tag;
+    late final String numRaw;
+    if (m != null) {
+      full = m.group(0)!;
+      tag = 'old';
+      numRaw = m.group(2)!;
+    } else {
+      final nw = _newCpuFull(low);
+      if (nw == null) {
+        final ap = _appleCpuEntry(low);
+        if (ap == null) return (entry: null, full: null, tag: 'none');
+        return (entry: ap.entry, full: ap.key, tag: 'apple');
+      }
+      full = nw.$1;
+      tag = nw.$2;
+      numRaw = RegExp(r'(\d+[a-z]{0,3})$').firstMatch(full)!.group(1)!;
+    }
 
     BenchEntry? bestIn(Map<String, dynamic> cat) {
       final qsq = _sq(full);
@@ -229,31 +347,32 @@ class Benchmark {
       return best;
     }
 
-    // 0) katalog MOBILE persis (PassMark punya data CPU laptop sendiri)
-    final bestM = bestIn(mobile);
-    if (bestM != null) return bestM;
+    // 0) katalog MOBILE persis, lalu 1) katalog desktop.
+    final bestM = bestIn(data.benchCatalog('cpu_mobile'));
+    if (bestM != null) return (entry: bestM, full: full, tag: tag);
+    final best = bestIn(data.benchCatalog('cpu'));
+    if (best != null) return (entry: best, full: full, tag: tag);
 
-    // 1) nama persis / substring di katalog desktop via squash
-    final best = bestIn(catalog);
-    if (best != null) return best;
-
-    // 2) proksi: famili+tier sama, nomor terdekat
+    // 2) proksi: famili+tier sama, nomor terdekat.
     final tier = RegExp(r'(i[3579]|[3579])').firstMatch(full);
-    if (tier == null) return null;
-    final tierCh = tier.group(1)![tier.group(1)!.length - 1];
+    if (tier == null) return (entry: null, full: full, tag: 'none');
+    final tierStr = tier.group(1)!;
+    final tierCh = tierStr[tierStr.length - 1];
     final isIntel = full.contains('core') || full.contains('ultra');
-    final wantNumStr =
-        m.group(2)!.toLowerCase().replaceAll(RegExp(r'[a-z]+$'), '');
-    if (!RegExp(r'^\d+$').hasMatch(wantNumStr)) return null;
+    final wantNumStr = numRaw.replaceAll(RegExp(r'[a-z]+$'), '');
+    if (!RegExp(r'^\d+$').hasMatch(wantNumStr)) {
+      return (entry: null, full: full, tag: 'none');
+    }
     final wantNum = int.parse(wantNumStr);
 
     int? candNum(String key) {
-      final cm = _cpuRe.firstMatch(key);
+      final cm = _cpuRe.firstMatch(key.toLowerCase());
       if (cm == null) return null;
-      final kfull = cm.group(0)!.toLowerCase();
+      final kfull = cm.group(0)!;
       final ktier = RegExp(r'(i[3579]|[3579])').firstMatch(kfull);
       if (ktier == null) return null;
-      if (ktier.group(1)![ktier.group(1)!.length - 1] != tierCh) return null;
+      final ktierStr = ktier.group(1)!;
+      if (ktierStr[ktierStr.length - 1] != tierCh) return null;
       final kintel = kfull.contains('core') || kfull.contains('ultra');
       if (kintel != isIntel) return null;
       final knum = cm.group(2)!.replaceAll(RegExp(r'[a-z]+$'), '');
@@ -262,22 +381,29 @@ class Benchmark {
     }
 
     final pool = <(int, String, BenchEntry)>[];
-    for (final e in catalog.entries) {
+    for (final e in data.benchCatalog('cpu').entries) {
       final entry = e.value;
       if (entry is! Map) continue;
       final knum = candNum(e.key);
       if (knum != null) {
-        pool.add(((knum - wantNum).abs(), e.key, entry.cast<String, dynamic>()));
+        pool.add(
+          ((knum - wantNum).abs(), e.key, entry.cast<String, dynamic>()),
+        );
       }
     }
-    if (pool.isEmpty) return null;
+    if (pool.isEmpty) return (entry: null, full: full, tag: 'none');
     stableSort(pool, (a, b) {
       final byDiff = a.$1.compareTo(b.$1);
       if (byDiff != 0) return byDiff;
       return _sq(a.$2).length.compareTo(_sq(b.$2).length);
     });
-    return pool[0].$3;
+    return (entry: pool[0].$3, full: full, tag: tag);
   }
+
+  /// Port `resolve_cpu_laptop()` (kompatibel pemanggil lama): hanya
+  /// entry hasil resolve; full/tag tersedia via [resolveCpuLaptopDetailed].
+  BenchEntry? resolveCpuLaptop(String? text) =>
+      resolveCpuLaptopDetailed(text).entry;
 
   bool _isIntegratedGpu(String? gpuText) {
     if (gpuText == null) return true;

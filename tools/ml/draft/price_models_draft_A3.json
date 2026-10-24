@@ -1,0 +1,406 @@
+{
+  "version": "1",
+  "trained_at": "2026-10-24T20:55:09+07:00",
+  "source": {
+    "csv_rows": 13573,
+    "consensus_generated_at": "2026-10-15",
+    "benchmark_generated_at": "2026-08-26T12:44:41.952595+00:00"
+  },
+  "categories": {
+    "gpu": {
+      "enabled": false,
+      "enabled_fallback": true,
+      "reason": "mae_model_a_tidak_lebih_baik_5persen",
+      "reason_fallback": "mae_model_b_le_90persen_median_kategori_b",
+      "intercept": 6.809105923254833,
+      "features": [
+        {
+          "name": "ln_passmark",
+          "coef": 0.8147634324933373
+        },
+        {
+          "name": "vram_gb",
+          "coef": 0.06775345183235934
+        },
+        {
+          "name": "cond_new",
+          "coef": 0.10550338642504672
+        },
+        {
+          "name": "cond_second",
+          "coef": -0.10550338642485946
+        },
+        {
+          "name": "src_tokopedia",
+          "coef": -0.10690043754509297
+        }
+      ],
+      "defaults": {
+        "vram_gb": 8.0,
+        "cond_new_mean": 0.7624273724983861,
+        "cond_second_mean": 0.23757262750161395,
+        "src_tokopedia_mean": 0.8786313750806972
+      },
+      "sigma_log": 0.46439057283279894,
+      "n_rows": 1549,
+      "mae_model": 1984217.483381512,
+      "mae_baseline": 1363524.549386701,
+      "mape_model": 0.4392141404384988,
+      "mape_baseline": 0.304910786862883,
+      "mae_model_group": 2086901.9256332822,
+      "mae_category_median_group": 3323323.648805681,
+      "mae_model_a_group_lt5": 2070522.5642057408,
+      "mae_baseline_a_group_lt5": 3351751.611111111,
+      "mae_model_a_group_ge5": 1976575.5717976377,
+      "mae_baseline_a_group_ge5": 1187476.3345045678,
+      "n_group_lt5": 126,
+      "n_group_ge5": 1423,
+      "src_variant": "with_src",
+      "src_variant_reason": "(a) dan (b) sepakat",
+      "mae_model_a_nosrc": 1993755.3906847225,
+      "mae_model_b_nosrc": 2087410.7656364767,
+      "mae_model_a_withsrc": 1984217.483381512,
+      "mae_model_b_withsrc": 2086901.9256332822
+    },
+    "cpu": {
+      "enabled": false,
+      "enabled_fallback": true,
+      "reason": "mae_model_a_tidak_lebih_baik_5persen",
+      "reason_fallback": "mae_model_b_le_90persen_median_kategori_b",
+      "intercept": 3.2431009353624454,
+      "features": [
+        {
+          "name": "ln_passmark",
+          "coef": 1.1937982196721677
+        },
+        {
+          "name": "cond_new",
+          "coef": 0.02330074320622919
+        },
+        {
+          "name": "cond_second",
+          "coef": -0.023300743206240693
+        },
+        {
+          "name": "src_tokopedia",
+          "coef": -0.35970297587904293
+        }
+      ],
+      "defaults": {
+        "cond_new_mean": 0.9110473457675753,
+        "cond_second_mean": 0.08895265423242468,
+        "src_tokopedia_mean": 0.8737446197991392
+      },
+      "sigma_log": 0.3835498227070264,
+      "n_rows": 697,
+      "mae_model": 807012.8598587492,
+      "mae_baseline": 585340.2388809182,
+      "mape_model": 0.22648334917291157,
+      "mape_baseline": 0.22464808599002062,
+      "mae_model_group": 854997.2377068702,
+      "mae_category_median_group": 1607342.1463414633,
+      "mae_model_a_group_lt5": 994222.9118203259,
+      "mae_baseline_a_group_lt5": 1946710.2974683545,
+      "mae_model_a_group_ge5": 783081.4778118811,
+      "mae_baseline_a_group_ge5": 411313.96925566345,
+      "n_group_lt5": 79,
+      "n_group_ge5": 618,
+      "src_variant": "with_src",
+      "src_variant_reason": "(a) dan (b) sepakat",
+      "mae_model_a_nosrc": 834482.9907854474,
+      "mae_model_b_nosrc": 903162.4829769586,
+      "mae_model_a_withsrc": 807012.8598587492,
+      "mae_model_b_withsrc": 854997.2377068702
+    },
+    "ram": {
+      "enabled": false,
+      "enabled_fallback": true,
+      "reason": "mae_model_a_tidak_lebih_baik_5persen",
+      "reason_fallback": "mae_model_b_le_90persen_median_kategori_b",
+      "intercept": 8.471814626079194,
+      "features": [
+        {
+          "name": "ln_capacity_gb",
+          "coef": 0.8703344479182326
+        },
+        {
+          "name": "ddr_gen",
+          "coef": 0.7145288469291138
+        },
+        {
+          "name": "is_sodimm",
+          "coef": -0.1422101105221763
+        },
+        {
+          "name": "speed_mhz",
+          "coef": 5.742335177013176e-05
+        },
+        {
+          "name": "cond_new",
+          "coef": -0.12108783086983993
+        },
+        {
+          "name": "cond_second",
+          "coef": 0.1210878308698167
+        }
+      ],
+      "defaults": {
+        "speed_mhz": 3200.0,
+        "speed_mhz_ddr3": 1600.0,
+        "speed_mhz_ddr4": 3200.0,
+        "speed_mhz_ddr5": 6000.0,
+        "cond_new_mean": 0.6899810964083176,
+        "cond_second_mean": 0.31001890359168244,
+        "src_tokopedia_mean": 0.6502835538752363
+      },
+      "sigma_log": 0.5786484354469493,
+      "n_rows": 529,
+      "mae_model": 1203232.6319708144,
+      "mae_baseline": 1197652.184310019,
+      "mape_model": 0.5392874503377322,
+      "mape_baseline": 0.5731407761883174,
+      "mae_model_group": 1213938.295247465,
+      "mae_category_median_group": 1844704.5179584122,
+      "mae_model_a_group_lt5": 7428451.309245856,
+      "mae_baseline_a_group_lt5": 11012641.666666666,
+      "mae_model_a_group_ge5": 1131815.2092869706,
+      "mae_baseline_a_group_ge5": 1085051.9225621414,
+      "n_group_lt5": 6,
+      "n_group_ge5": 523,
+      "src_variant": "without_src",
+      "src_variant_reason": "(a) dan (b) sepakat",
+      "mae_model_a_nosrc": 1203232.6319708144,
+      "mae_model_b_nosrc": 1213938.295247465,
+      "mae_model_a_withsrc": 1262615.3559432062,
+      "mae_model_b_withsrc": 1277167.0189240393
+    },
+    "storage": {
+      "enabled": false,
+      "enabled_fallback": true,
+      "reason": "mae_model_a_tidak_lebih_baik_5persen",
+      "reason_fallback": "mae_model_b_le_90persen_median_kategori_b",
+      "intercept": 11.727176338185895,
+      "features": [
+        {
+          "name": "ln_capacity_gb",
+          "coef": 0.3089137785698666
+        },
+        {
+          "name": "type_nvme",
+          "coef": 0.30525708646555516
+        },
+        {
+          "name": "type_sata_ssd",
+          "coef": -0.039277956083687386
+        },
+        {
+          "name": "type_hdd",
+          "coef": -0.4498777426620776
+        },
+        {
+          "name": "cond_new",
+          "coef": 0.13802963874182422
+        },
+        {
+          "name": "cond_second",
+          "coef": -0.13802963874181015
+        }
+      ],
+      "defaults": {
+        "cond_new_mean": 0.7081081081081081,
+        "cond_second_mean": 0.2918918918918919,
+        "src_tokopedia_mean": 0.6270270270270271
+      },
+      "sigma_log": 0.7384605134971411,
+      "n_rows": 740,
+      "mae_model": 822909.7262435256,
+      "mae_baseline": 599387.1385135135,
+      "mape_model": 0.763451634402207,
+      "mape_baseline": 0.613002434386737,
+      "mae_model_group": 894690.6907812591,
+      "mae_category_median_group": 995469.0,
+      "mae_model_a_group_lt5": 1566211.136935348,
+      "mae_baseline_a_group_lt5": 779975.1463414634,
+      "mae_model_a_group_ge5": 779311.2171757647,
+      "mae_baseline_a_group_ge5": 588794.708869814,
+      "n_group_lt5": 41,
+      "n_group_ge5": 699,
+      "src_variant": "without_src",
+      "src_variant_reason": "(a) dan (b) sepakat",
+      "mae_model_a_nosrc": 822909.7262435256,
+      "mae_model_b_nosrc": 894690.6907812591,
+      "mae_model_a_withsrc": 823104.6773090627,
+      "mae_model_b_withsrc": 897083.2800927488
+    },
+    "motherboard": {
+      "enabled": false,
+      "enabled_fallback": false,
+      "reason": "mae_model_a_tidak_lebih_baik_5persen",
+      "reason_fallback": "mae_model_b_tidak_lebih_baik_10persen",
+      "intercept": 14.456785559804366,
+      "features": [
+        {
+          "name": "chipset_a520",
+          "coef": -0.6429751767617976
+        },
+        {
+          "name": "chipset_b450",
+          "coef": -0.3644825633457547
+        },
+        {
+          "name": "chipset_b550",
+          "coef": -0.13501949062030694
+        },
+        {
+          "name": "chipset_b650",
+          "coef": 0.21174156610908837
+        },
+        {
+          "name": "chipset_b660",
+          "coef": 0.032907306829345596
+        },
+        {
+          "name": "chipset_b760",
+          "coef": 0.06895066395003246
+        },
+        {
+          "name": "chipset_b850",
+          "coef": 0.44969242602122667
+        },
+        {
+          "name": "chipset_z790",
+          "coef": 0.7591522947903403
+        },
+        {
+          "name": "chipset_other",
+          "coef": -0.1731397768928462
+        },
+        {
+          "name": "cond_new",
+          "coef": 0.2513080369488613
+        },
+        {
+          "name": "cond_second",
+          "coef": -0.2513080369488695
+        },
+        {
+          "name": "src_tokopedia",
+          "coef": -0.28209632321068184
+        }
+      ],
+      "defaults": {
+        "cond_new_mean": 0.8966244725738397,
+        "cond_second_mean": 0.10337552742616034,
+        "src_tokopedia_mean": 0.8818565400843882
+      },
+      "sigma_log": 0.39311493300780376,
+      "n_rows": 474,
+      "mae_model": 540286.6882453504,
+      "mae_baseline": 543419.4187763713,
+      "mape_model": 0.30109470568885915,
+      "mape_baseline": 0.32292536108378816,
+      "mae_model_group": 869553.995512777,
+      "mae_category_median_group": 897040.5949367088,
+      "mae_model_a_group_lt5": 1490544.949098575,
+      "mae_baseline_a_group_lt5": 1495145.8636363635,
+      "mae_model_a_group_ge5": 494035.17997373326,
+      "mae_baseline_a_group_ge5": 497096.45022123895,
+      "n_group_lt5": 22,
+      "n_group_ge5": 452,
+      "src_variant": "with_src",
+      "src_variant_reason": "(a) dan (b) bertentangan, keputusan utama = (a)",
+      "mae_model_a_nosrc": 541108.8862449819,
+      "mae_model_b_nosrc": 866068.7152279264,
+      "mae_model_a_withsrc": 540286.6882453504,
+      "mae_model_b_withsrc": 869553.995512777
+    },
+    "laptop": {
+      "enabled": true,
+      "enabled_fallback": true,
+      "reason": "mae_model_a_le_95persen_baseline_a",
+      "reason_fallback": "mae_model_b_le_90persen_median_kategori_b",
+      "intercept": 9.306685305443978,
+      "features": [
+        {
+          "name": "ln_cpu_passmark",
+          "coef": 0.5722015069799915
+        },
+        {
+          "name": "ln_gpu_passmark",
+          "coef": 0.2054243275125642
+        },
+        {
+          "name": "has_dgpu",
+          "coef": -1.6385742761808564
+        },
+        {
+          "name": "ln_ram_gb",
+          "coef": 0.12558932112026688
+        },
+        {
+          "name": "ln_storage_gb",
+          "coef": 0.129792864677763
+        },
+        {
+          "name": "cond_new",
+          "coef": 0.024876701260639025
+        },
+        {
+          "name": "cond_second",
+          "coef": -0.0248767012606295
+        }
+      ],
+      "defaults": {
+        "cond_new_mean": 0.33611111111111114,
+        "cond_second_mean": 0.6638888888888889,
+        "src_tokopedia_mean": 0.39351851851851855
+      },
+      "sigma_log": 0.3093164971381307,
+      "n_rows": 1080,
+      "mae_model": 2213093.0540845683,
+      "mae_baseline": 2944335.206944444,
+      "mape_model": 0.22684333385722438,
+      "mape_baseline": 0.3344634830593721,
+      "mae_model_group": 2239640.955257091,
+      "mae_category_median_group": 4630670.519444444,
+      "mae_model_a_group_lt5": 2477635.570661149,
+      "mae_baseline_a_group_lt5": 4211252.536321484,
+      "mae_model_a_group_ge5": 1817806.6609551273,
+      "mae_baseline_a_group_ge5": 1051273.9780600462,
+      "n_group_lt5": 647,
+      "n_group_ge5": 433,
+      "src_variant": "without_src",
+      "src_variant_reason": "(a) dan (b) sepakat",
+      "mae_model_a_nosrc": 2213093.0540845683,
+      "mae_model_b_nosrc": 2239640.955257091,
+      "mae_model_a_withsrc": 2248144.2261397797,
+      "mae_model_b_withsrc": 2271004.845708772
+    }
+  },
+  "score_scales": {
+    "gpu": {
+      "chosen": "passmark",
+      "choice_reason": "spearman interseksi lebih tinggi",
+      "cov_cons": 0.7270011947431302,
+      "cov_bench": 0.998805256869773,
+      "sp_inter_cons": 0.38151856050701144,
+      "sp_inter_bench": 0.7982197753175589
+    },
+    "cpu": {
+      "chosen": "passmark",
+      "choice_reason": "spearman interseksi lebih tinggi",
+      "cov_cons": 0.8849206349206349,
+      "cov_bench": 0.9947089947089947,
+      "sp_inter_cons": 0.7023512443050435,
+      "sp_inter_bench": 0.8342357399326316
+    },
+    "laptop_gpu": {
+      "chosen": "passmark",
+      "choice_reason": "spearman interseksi lebih tinggi",
+      "cov_cons": 0.7156862745098039,
+      "cov_bench": 0.9994232987312572,
+      "sp_inter_cons": 0.48084739864669007,
+      "sp_inter_bench": 0.8965517241379309
+    }
+  }
+}

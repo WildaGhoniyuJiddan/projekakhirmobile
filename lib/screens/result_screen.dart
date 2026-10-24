@@ -119,17 +119,23 @@ class ResultScreen extends ConsumerWidget {
                 ),
                 if (r.referencePrice != null)
                   Text(
-                    'Median pasar: ${formatRupiah(r.referencePrice!)}',
+                    r.isMlEstimate
+                        ? 'Estimasi model (pembanding sedikit): ${formatRupiah(r.referencePrice!)}'
+                        : 'Median pasar: ${formatRupiah(r.referencePrice!)}',
                     style: theme.textTheme.bodyMedium,
                   ),
                 if (r.fairPriceLow != null && r.fairPriceHigh != null)
                   Text(
-                    'Rentang wajar: ${formatRupiah(r.fairPriceLow!)} – ${formatRupiah(r.fairPriceHigh!)}',
+                    r.isMlEstimate
+                        ? 'Rentang perkiraan: ${formatRupiah(r.fairPriceLow!)} – ${formatRupiah(r.fairPriceHigh!)}'
+                        : 'Rentang wajar: ${formatRupiah(r.fairPriceLow!)} – ${formatRupiah(r.fairPriceHigh!)}',
                     style: theme.textTheme.bodyMedium,
                   ),
                 if (r.priceDeltaPercent != null)
                   Text(
-                    'Selisih: ${r.priceDeltaPercent!.toStringAsFixed(1)}% dari median',
+                    r.isMlEstimate
+                        ? 'Selisih: ${r.priceDeltaPercent!.toStringAsFixed(1)}% dari estimasi model'
+                        : 'Selisih: ${r.priceDeltaPercent!.toStringAsFixed(1)}% dari median',
                     style: theme.textTheme.bodyMedium,
                   ),
               ],

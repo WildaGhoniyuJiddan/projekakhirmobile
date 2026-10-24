@@ -64,6 +64,7 @@ class ScoreResult {
     this.newReferencePrice,
     this.usedReferencePrice,
     this.crossMarketAdvice,
+    this.isMlEstimate = false,
   });
 
   final double score;
@@ -77,6 +78,11 @@ class ScoreResult {
   final int? newReferencePrice;
   final int? usedReferencePrice;
   final String? crossMarketAdvice;
+
+  /// True bila referencePrice/fair range berasal dari model ML Tier 2
+  /// (pembanding < 5), bukan median pasar. Default false agar semua
+  /// konstruksi lama tak berubah.
+  final bool isMlEstimate;
 }
 
 /// Port score_price() Python.

@@ -68,6 +68,7 @@ class AnalysisResult {
     this.alternatives = const [],
     this.freshnessLabel,
     this.isStale = false,
+    this.isMlEstimate = false,
   });
 
   final String mode;
@@ -84,6 +85,11 @@ class AnalysisResult {
   final List<Alternative> alternatives;
   final String? freshnessLabel;
   final bool isStale;
+
+  /// True bila referencePrice/fair range berasal dari model ML Tier 2
+  /// (pembanding < 5), bukan median pasar. Default false; riwayat tidak
+  /// menyimpan field ini (hanya mode/query/harga/skor/verdict).
+  final bool isMlEstimate;
 
   factory AnalysisResult.fromJson(Map<String, dynamic> json) {
     final freshness = json['freshness'] as Map<String, dynamic>?;

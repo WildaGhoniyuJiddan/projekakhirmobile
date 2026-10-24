@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import '../../models/bundle_models.dart';
 import 'benchmark.dart';
 import 'dataset.dart';
+import 'price_model.dart';
 import 'relevance.dart';
 import 'scoring.dart';
 
@@ -424,11 +425,17 @@ class _Scored {
 }
 
 class AnalysisEngine {
-  AnalysisEngine(this.data, this.listings) : benchmark = Benchmark(data);
+  AnalysisEngine(this.data, this.listings, {this.priceModels})
+      : benchmark = Benchmark(data);
 
   final BenchmarkData data;
   final ListingsSource listings;
   final Benchmark benchmark;
+
+  /// Model ML Tier 2 (null = tak dimuat / gagal muat -> engine jalan
+  /// seperti sebelumnya). Diinjeksikan `PriceCheckApi._ensureEngine`;
+  /// test langsung dan golden test memakai default null.
+  final MlPriceModels? priceModels;
 
   /// Harga retail mobo dari katalog: match nama paling mirip (subset token).
   int? _moboAnchor(String query) {
@@ -1253,8 +1260,86 @@ class AnalysisEngine {
     var result = scorePrice(request.price, primaryPrices);
     var compsFinal = comparisons;
 
+    // ML Tier 2 fallback (Fase C, JSON final: enabled=false semua,
+    // enabled_fallback=true hanya gpu/cpu/ram/laptop). Dipakai HANYA
+    // bila pembanding < 5 — Tier 1 sengaja nonaktif karena median produk
+    // lebih kuat bila pembanding banyak.
+    //
+    // "Pembanding" = comparisons yang SUDAH dipakai jalur median di atas
+    // (pool engine: exact-match diutamakan, ditambah family/retail bila
+    // pool < 10), BUKAN group_n Python (grup produk persis di train
+    // fold). Akibat pemetaan ini: ML di app menyala lebih jarang daripada
+    // segmen <5 Python, karena family/retail ikut mengisi pool.
+    // Hitungan diambil SEBELUM injeksi anchor (anchor menambah satu
+    // pseudo-comparison saat comps kosong, yang akan merusak aturan di
+    // bawah bila dihitung sesudahnya).
+    var mlFired = false;
+    final mlCategory = request.mode == 'laptop'
+        ? 'laptop'
+        : _resolveCtype(request.componentType, request.query);
+    final models = priceModels;
+    if (models != null &&
+        mlCategory != null &&
+        models.isFallbackEnabled(mlCategory) &&
+        comparisons.length < 5) {
+      // Pengecualian anchor (perilaku lama dipertahankan): 0 pembanding
+      // + kondisi bukan bekas/second + anchor retail ada -> JANGAN
+      // preempt dengan ML; biarkan blok anchor di bawah yang jalan.
+      // Untuk kondisi bekas/second pengecualian ini TIDAK berlaku
+      // (blok anchor lama mensyaratkan condition != 'second', dan
+      // spesifikasi Fase C mematok ML untuk sudut ini).
+      final anchorPreempts = comparisons.isEmpty &&
+          request.condition != 'second' &&
+          request.condition != 'bekas' &&
+          newPriceAnchor(request.query, request.componentType) != null;
+      if (!anchorPreempts) {
+        final ml = mlEstimateFor(
+          models: models,
+          category: mlCategory,
+          benchmark: benchmark,
+          query: request.query,
+          cpuText:
+              (request.cpu != null && request.cpu!.isNotEmpty) ? request.cpu : null,
+          gpuText:
+              (request.gpu != null && request.gpu!.isNotEmpty) ? request.gpu : null,
+          ramGb: request.ramGb,
+          storageGb: request.storageGb,
+          condition: request.condition,
+        );
+        if (ml != null) {
+          // Skor/verdict/delta konsisten dengan titik estimasi ML
+          // (scorePrice atas satu referensi = estimasi ML); rentang
+          // median diganti rentang perkiraan model (0.67 sigma).
+          final base = scorePrice(request.price, [pyRoundInt(ml.price)]);
+          final mlRec = switch (base.verdict) {
+            'worth it' =>
+              'Harga berada di bawah estimasi model dan layak dipertimbangkan.',
+            'wajar' => 'Harga masih berada di rentang perkiraan model.',
+            'ada opsi lebih baik' =>
+              'Ada estimasi lebih rendah; pertimbangkan negosiasi atau opsi lain.',
+            'kemahalan' => 'Harga berada cukup jauh di atas estimasi model.',
+            _ => base.recommendation,
+          };
+          result = ScoreResult(
+            score: base.score,
+            verdict: base.verdict,
+            recommendation: mlRec,
+            referencePrice: pyRoundInt(ml.price),
+            deltaPercent: base.deltaPercent,
+            fairPriceLow: pyRoundInt(ml.low),
+            fairPriceHigh: pyRoundInt(ml.high),
+            isMlEstimate: true,
+          );
+          mlFired = true;
+        }
+      }
+    }
+
     // Fallback anchor harga BARU bila listing tak cukup untuk verdict.
-    if ((result.verdict == 'data terbatas' || compsFinal.isEmpty) &&
+    // Dilewati bila ML sudah menyala (ML preempt anchor kecuali kasus
+    // pengecualian di atas, yang memang tidak menyalakan ML).
+    if (!mlFired &&
+        (result.verdict == 'data terbatas' || compsFinal.isEmpty) &&
         request.condition != 'second') {
       final refNew = newPriceAnchor(request.query, request.componentType);
       if (refNew != null) {
@@ -1319,6 +1404,7 @@ class AnalysisEngine {
       newReferencePrice: newRef,
       usedReferencePrice: usedRef,
       crossMarketAdvice: crossAdvice,
+      isMlEstimate: result.isMlEstimate,
     );
 
     return AnalysisOutcome(
@@ -1577,8 +1663,17 @@ String? _cpuTier(String sig) {
 
 int? _extractStorageFromText(String? text) {
   final t = (text ?? '').toLowerCase();
-  final mTb = RegExp(r'(\d)\s*tb\b').firstMatch(t);
-  if (mTb != null) return int.parse(mTb.group(1)!) * 1000;
+  // Perbaikan desimal (Fase C, port `extract_storage_text` Python):
+  // '2.0TB' -> 2000, bukan 0 seperti regex digit-mentah lama
+  // (`(\d)\s*tb` membaca '0' dari '2.0TB'). Kapasitas <= 0 = tak
+  // ter-parse (null), bukan 0 yang menjatuhkan baris valid di
+  // perbandingan laptop.
+  final mTb = RegExp(r'(\d+(?:[.,]\d+)?)\s*tb\b').firstMatch(t);
+  if (mTb != null) {
+    final cap =
+        (double.parse(mTb.group(1)!.replaceAll(',', '.')) * 1000).round();
+    return cap <= 0 ? null : cap;
+  }
   final mSlash = RegExp(r'\b\d{1,2}\s*/\s*(\d{3,4})\b').firstMatch(t);
   if (mSlash != null) return int.parse(mSlash.group(1)!);
   final mSsd =

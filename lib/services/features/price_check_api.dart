@@ -1,8 +1,12 @@
+import 'dart:convert';
+
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:worthbang/models/bundle_models.dart';
 import 'package:worthbang/models/price_check_models.dart';
 import 'package:worthbang/services/core/api_exception.dart';
 import 'package:worthbang/services/engine/analysis_engine.dart';
 import 'package:worthbang/services/engine/dataset.dart';
+import 'package:worthbang/services/engine/price_model.dart';
 import 'package:worthbang/services/engine/suggest.dart';
 import 'package:worthbang/services/core/supabase_listings_source.dart';
 import 'package:worthbang/services/data/products_catalog.dart';
@@ -23,7 +27,21 @@ class PriceCheckApi {
     final existing = _engine;
     if (existing != null) return existing;
     final data = BenchmarkData.instance ?? await BenchmarkData.load();
-    return _engine = AnalysisEngine(data, SupabaseListingsSource());
+    // Model ML Tier 2 (Fase C): pola loading asset JSON yang sama dengan
+    // BenchmarkData.load. Gagal muat = model null, BUKAN throw; engine
+    // bekerja seperti sebelumnya (jalur median + anchor).
+    MlPriceModels? models;
+    try {
+      final text = await rootBundle.loadString('assets/data/price_models.json');
+      final decoded = jsonDecode(text);
+      if (decoded is Map) {
+        models = MlPriceModels.fromJson(decoded.cast<String, dynamic>());
+      }
+    } catch (_) {
+      models = null;
+    }
+    return _engine =
+        AnalysisEngine(data, SupabaseListingsSource(), priceModels: models);
   }
 
   Future<SuggestEngine> _ensureSuggest() async {
@@ -76,6 +94,7 @@ class PriceCheckApi {
           .toList(),
       freshnessLabel: outcome.freshness.label,
       isStale: outcome.freshness.isStale,
+      isMlEstimate: r.isMlEstimate,
     );
   }
 
