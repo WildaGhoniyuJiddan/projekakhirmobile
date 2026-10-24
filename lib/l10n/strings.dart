@@ -252,4 +252,29 @@ abstract final class AppStrings {
       'Kebutuhan, budget & platform untuk rekomendasi produk';
   static const showcaseTitle = 'Buat Kamu';
   static const showcaseSubtitle = 'Dipilih dari kebiasaan & preferensimu';
+
+  // Pindai Harga (OCR on-device, tanpa LLM, tanpa Dodo).
+  static const scanPriceTitle = 'Pindai Harga';
+  static const scanPriceSubtitle =
+      'Foto label harga di toko, langsung tahu worth atau tidak.';
+  static const scanGuideTitle = 'Arahkan kamera ke label harga';
+  static const scanGuideHint =
+      'Foto dari jarak 10-15 cm, pastikan nama produk dan harga terlihat jelas dan tidak buram.';
+  static const scanTakePhoto = 'Ambil Foto';
+  static const scanPickFromGallery = 'Pilih dari Galeri';
+  static const scanRetake = 'Foto Ulang';
+  static const scanReading = 'Membaca label...';
+  static const scanConfirmTitle = 'Hasil pindaian';
+  static const scanConfirmHint =
+      'Periksa nama dan harga di bawah ini. Ketuk chip harga bila yang terpilih belum tepat.';
+  static const scanPriceChoiceLabel = 'Pilih harga yang benar';
+  static const scanCheckButton = 'Cek Worth It';
+  static const scanRetry = 'Coba Lagi';
+  static const scanManualButton = 'Isi Manual';
+  static const scanEmptyText =
+      'Tidak ada teks yang terbaca dari foto. Pastikan label harga terlihat jelas dan tidak buram.';
+  static const scanNoData =
+      'Teks berhasil dibaca, tetapi tidak ditemukan pola nama produk atau harga yang valid (Rp 50rb - 150jt).';
+  static const scanFailed =
+      'Gagal memproses gambar di perangkat. Layanan OCR mungkin belum siap atau perangkat tidak mendukung.';
 }

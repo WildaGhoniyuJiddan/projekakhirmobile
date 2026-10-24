@@ -19,7 +19,9 @@ import 'package:worthbang/services/data/history_repository.dart';
 import 'package:worthbang/models/price_check_models.dart';
 import 'package:worthbang/services/features/personalization/personalization_engine.dart';
 import 'package:worthbang/services/features/price_check_api.dart';
+import 'package:worthbang/services/features/scan_price_service.dart';
 import 'result_screen.dart';
+import 'scan_price_screen.dart';
 import 'bundle_screen.dart';
 
 final priceCheckApiProvider = Provider<PriceCheckApi>(
@@ -112,6 +114,43 @@ class _PriceCheckScreenState extends ConsumerState<PriceCheckScreen> {
     } catch (e) {
       setState(() => _state = ApiError(e.toString()));
     }
+  }
+
+  /// Buka Pindai Harga: hasil OCR diteruskan ke analyze() yang sama
+  /// dengan _submit, lalu ke ResultScreen yang sama.
+  void _openScanPrice() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ScanPriceScreen(
+          scanService: MlKitScanPriceService(),
+          onAnalyzeRequested: (ctx, query, price) async {
+            final result = await ref.read(priceCheckApiProvider).analyze(
+                  mode: _mode,
+                  query: query,
+                  price: price,
+                  condition: _condition,
+                );
+            if (!mounted) return;
+            // Simpan ke hash chain, lalu buka layar hasil.
+            final block =
+                await ref.read(historyRepositoryProvider).appendAnalysis(result);
+            if (!ctx.mounted) return;
+            Navigator.of(ctx).push(
+              MaterialPageRoute(
+                builder: (_) => ResultScreen(result: result, blockId: block.id),
+              ),
+            );
+          },
+          onFallbackManual: (ctx, {initialQuery}) {
+            // Kembali ke form ini; isi query bila ada hasil pindaian.
+            Navigator.of(ctx).pop();
+            if (initialQuery != null && initialQuery.isNotEmpty) {
+              setState(() => _query.text = initialQuery);
+            }
+          },
+        ),
+      ),
+    );
   }
 
   /// Catat event cek worth untuk personalisasi (best-effort,
@@ -333,6 +372,12 @@ class _PriceCheckScreenState extends ConsumerState<PriceCheckScreen> {
                     MaterialPageRoute(
                         builder: (_) => const BundleScreen()),
                   ),
+                ),
+                const SizedBox(height: 10),
+                MonexSecondaryButton(
+                  label: AppStrings.scanPriceTitle,
+                  icon: Icons.document_scanner_outlined,
+                  onPressed: _openScanPrice,
                 ),
               ],
             ),

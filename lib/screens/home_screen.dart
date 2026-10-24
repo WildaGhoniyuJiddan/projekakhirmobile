@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
@@ -9,10 +10,13 @@ import 'package:worthbang/screens/dream_build_screen.dart';
 import 'package:worthbang/screens/chat_screen.dart';
 import 'package:worthbang/screens/mini_games_screen.dart';
 import 'package:worthbang/screens/price_check_screen.dart';
+import 'package:worthbang/screens/result_screen.dart';
+import 'package:worthbang/screens/scan_price_screen.dart';
 import 'package:worthbang/screens/search_screen.dart';
 import 'package:worthbang/screens/stores_screen.dart';
 import 'package:worthbang/screens/tools_screen.dart';
 import 'package:worthbang/screens/wishlist_screen.dart';
+import 'package:worthbang/services/features/scan_price_service.dart';
 import 'package:worthbang/widgets/app_logo.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -23,49 +27,85 @@ class HomeScreen extends StatelessWidget {
       title: AppStrings.builderTitle,
       subtitle: AppStrings.homeBuilderSubtitle,
       icon: Icons.handyman_outlined,
-      page: () => const BuilderScreen(),
+      page: (_) => const BuilderScreen(),
     ),
     _HomeMenuItem(
       title: AppStrings.searchScreenTitle,
       subtitle: AppStrings.homeSearchSubtitle,
       icon: Icons.search_rounded,
-      page: () => const SearchFilterScreen(),
+      page: (_) => const SearchFilterScreen(),
     ),
     _HomeMenuItem(
       title: AppStrings.storesTitle,
       subtitle: AppStrings.homeStoresSubtitle,
       icon: Icons.store_outlined,
-      page: () => const StoresScreen(),
+      page: (_) => const StoresScreen(),
     ),
     _HomeMenuItem(
       title: AppStrings.toolsTitle,
       subtitle: AppStrings.homeToolsSubtitle,
       icon: Icons.calculate_outlined,
-      page: () => const ToolsScreen(),
+      page: (_) => const ToolsScreen(),
     ),
     _HomeMenuItem(
       title: AppStrings.wishlistTitle,
       subtitle: AppStrings.homeWishlistSubtitle,
       icon: Icons.favorite_border_rounded,
-      page: () => const WishlistAlertsScreen(),
+      page: (_) => const WishlistAlertsScreen(),
     ),
     _HomeMenuItem(
       title: DreamStrings.title,
       subtitle: DreamStrings.homeSubtitle,
       icon: Icons.rocket_launch_outlined,
-      page: () => const DreamBuildScreen(),
+      page: (_) => const DreamBuildScreen(),
     ),
     _HomeMenuItem(
       title: AppStrings.miniGamesTitle,
       subtitle: AppStrings.homeMiniGamesSubtitle,
       icon: Icons.sports_esports_outlined,
-      page: () => const MiniGamesScreen(),
+      page: (_) => const MiniGamesScreen(),
     ),
     _HomeMenuItem(
       title: AppStrings.chatTitle,
       subtitle: AppStrings.homeChatSubtitle,
       icon: Icons.smart_toy_outlined,
-      page: () => const ChatScreen(),
+      page: (_) => const ChatScreen(),
+    ),
+    // Shortcut Pindai Harga: mode/kondisi default sama seperti _submit
+    // di PriceCheckScreen (pc / any); callback memakai container Riverpod
+    // dari context karena HomeScreen bukan Consumer.
+    _HomeMenuItem(
+      title: AppStrings.scanPriceTitle,
+      subtitle: AppStrings.scanPriceSubtitle,
+      icon: Icons.document_scanner_outlined,
+      page: (context) => ScanPriceScreen(
+        scanService: MlKitScanPriceService(),
+        onAnalyzeRequested: (ctx, query, price) async {
+          final container = ProviderScope.containerOf(ctx);
+          final result = await container.read(priceCheckApiProvider).analyze(
+                mode: 'pc',
+                query: query,
+                price: price,
+                condition: 'any',
+              );
+          final block = await container
+              .read(historyRepositoryProvider)
+              .appendAnalysis(result);
+          if (!ctx.mounted) return;
+          Navigator.of(ctx).push(
+            MaterialPageRoute(
+              builder: (_) => ResultScreen(result: result, blockId: block.id),
+            ),
+          );
+        },
+        onFallbackManual: (ctx, {initialQuery}) {
+          Navigator.of(ctx).push(
+            MaterialPageRoute(
+              builder: (_) => PriceCheckScreen(initialQuery: initialQuery),
+            ),
+          );
+        },
+      ),
     ),
   ];
 
@@ -194,7 +234,7 @@ class HomeScreen extends StatelessWidget {
                   final menu = _menus[index];
                   return _HomeMenuCard(
                     item: menu,
-                    onTap: () => _openPage(context, menu.page()),
+                    onTap: () => _openPage(context, menu.page(context)),
                   );
                 },
               );
@@ -217,7 +257,7 @@ class _HomeMenuItem {
   final String title;
   final String subtitle;
   final IconData icon;
-  final Widget Function() page;
+  final Widget Function(BuildContext context) page;
 }
 
 class _HomeMenuCard extends StatelessWidget {
