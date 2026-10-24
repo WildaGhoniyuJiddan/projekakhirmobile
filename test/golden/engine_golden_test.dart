@@ -310,21 +310,28 @@ void main() {
           isEmpty);
     });
 
-    test('RTX 4060 @5.5jt → GTX 1080-Ti lalu RTX 3060 (diurut skor desc)',
+    test('RTX 4060 @5.5jt → RTX 3060 lalu RTX 2060 (modern didahulukan)',
         () {
+      // PENYIMPANGAN SENGAJA dari urutan skor mentah Python (Okt 2026):
+      // kebijakan alternatif GPU mendahulukan arsitektur modern (RTX)
+      // di atas GTX lawas. NILAI (skor, harga, gain, sumber) tetap sama
+      // persis dengan panen Python; hanya urutannya yang berubah, dan
+      // GTX 1080-Ti (skor mentah 78, tertinggi) kini jatuh ke urutan 3
+      // karena dua slot teratas diisi kandidat modern.
       final alts =
           betterAlternativesConsensus('RTX 4060', 'gpu', 5500000, 16000);
       expect(alts, hasLength(2));
-      expect(alts[0].name, 'Nvidia GTX 1080-Ti');
-      expect(alts[0].score, 78);
-      expect(alts[0].estPriceIdr, 4259200);
-      expect(alts[0].gainPercent, 169);
-      expect(alts[0].nSources, 1);
-      expect(alts[1].name, 'Nvidia RTX 3060');
-      expect(alts[1].score, 75);
-      expect(alts[1].estPriceIdr, 4928000);
-      expect(alts[1].gainPercent, 160);
-      expect(alts[1].vramGb, 12);
+      expect(alts[0].name, 'Nvidia RTX 3060');
+      expect(alts[0].score, 75);
+      expect(alts[0].estPriceIdr, 4928000);
+      expect(alts[0].gainPercent, 160);
+      expect(alts[0].vramGb, 12);
+      expect(alts[1].name, 'Nvidia RTX 2060');
+      expect(alts[1].score, 66);
+      expect(alts[1].estPriceIdr, 2464000);
+      expect(alts[1].gainPercent, 128);
+      expect(alts[1].vramGb, 6);
+      expect(alts[1].nSources, 1);
     });
 
     test('Ryzen 5 5600 @2.5jt → 5500GT lalu i5-12600', () {

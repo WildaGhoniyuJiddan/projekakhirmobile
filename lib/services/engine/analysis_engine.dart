@@ -1121,7 +1121,65 @@ class AnalysisEngine {
           'lebih tinggi yang masih masuk budget adalah ${best['name']} '
           '(performa $gainStr, estimasi Rp$estPriceStr, $srcStr).';
     }
-    return (advice, [for (final a in alts) _alternativeFromMap(a)]);
+    final modernNote = _modernGpuNote(request.query, ctype, alts);
+    final fullAdvice = modernNote.isEmpty ? advice : '$advice $modernNote';
+    return (fullAdvice, [for (final a in alts) _alternativeFromMap(a)]);
+  }
+
+  /// Catatan penyeimbang untuk rekomendasi GPU: bila ada kandidat GTX
+  /// yang skor mentahnya mengalahkan kandidat modern yang disarankan
+  /// (atau mengalahkan input modern yang tak punya alternatif modern),
+  /// jelaskan bahwa seri modern unggul fitur sedangkan GTX hanya unggul
+  /// raw performance. Basis persen: gain_percent GTX terhadap skor GPU
+  /// input (sudah dihitung di peta alternatif). '' bila tidak ada
+  /// konflik mentah-vs-fitur yang perlu dijelaskan.
+  String _modernGpuNote(
+    String query,
+    String? componentType,
+    List<Map<String, Object?>> alts,
+  ) {
+    if (componentType != 'gpu') return '';
+    Map<String, Object?>? modernAlt;
+    Map<String, Object?>? gtxAlt;
+    for (final a in alts) {
+      final name = a['name'] as String? ?? '';
+      if (modernAlt == null && isModernGpuModel(name)) modernAlt = a;
+      if (gtxAlt == null && isGtxGpuModel(name)) gtxAlt = a;
+    }
+    if (gtxAlt == null) return '';
+    final gtxName = gtxAlt['name'] as String? ?? '';
+    final gtxGain = gtxAlt['gain_percent'];
+    if (modernAlt != null) {
+      final modernScore = (modernAlt['score'] as num?) ?? 0;
+      final gtxScore = (gtxAlt['score'] as num?) ?? 0;
+      if (gtxScore <= modernScore) return '';
+      final modernName = modernAlt['name'] as String? ?? '';
+      final series = modernGpuSeries(modernName);
+      final seriesText = series == 'RX' ? 'RX 6000 ke atas' : series;
+      return 'Untuk fitur modern seperti ${_modernFeatures(series)}, '
+          'utamakan seri $seriesText (seperti $modernName). Namun jika '
+          'kamu murni mengejar raw performance di budget ini, $gtxName '
+          'menawarkan tenaga mentah lebih tinggi (+$gtxGain%).';
+    }
+    if (!isModernGpuModel(query)) return '';
+    final series = modernGpuSeries(query);
+    return '$query sudah unggul di fitur modern seperti '
+        '${_modernFeatures(series)}; $gtxName hanya menjadi pilihan bila '
+        'kamu murni mengejar raw performance (+$gtxGain%).';
+  }
+
+  /// Fitur modern per seri (DLSS/FSR/XeSS + Ray Tracing).
+  String _modernFeatures(String series) {
+    switch (series) {
+      case 'RTX':
+        return 'DLSS dan Ray Tracing';
+      case 'RX':
+        return 'Ray Tracing dan FSR';
+      case 'Arc':
+        return 'Ray Tracing dan XeSS';
+      default:
+        return 'fitur modern';
+    }
   }
 
   (String, List<AlternativeData>) _laptopBenchmarkAdvice(

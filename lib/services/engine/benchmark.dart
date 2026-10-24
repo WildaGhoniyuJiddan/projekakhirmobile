@@ -16,6 +16,25 @@ num? _numOf(BenchEntry? entry, String key) {
   return v is num ? v : null;
 }
 
+/// Seri GPU modern dari nama model: 'RTX' (DLSS + Ray Tracing),
+/// 'RX' (Radeon RX seri 6000 ke atas, RDNA2+), 'Arc' (Intel Arc
+/// seri A/B), atau '' bila bukan modern (GTX dan seri lama lainnya).
+/// Dipakai urutan alternatif + kalimat advice; bukan skor baru.
+String modernGpuSeries(String? name) {
+  final text = (name ?? '').toLowerCase();
+  if (RegExp(r'\brtx\b').hasMatch(text)) return 'RTX';
+  if (RegExp(r'\brx\s*[6-9]\d{3}\b').hasMatch(text)) return 'RX';
+  if (RegExp(r'\barc\s*[ab]\d{3}\b').hasMatch(text)) return 'Arc';
+  return '';
+}
+
+/// True bila nama model termasuk arsitektur GPU modern.
+bool isModernGpuModel(String? name) => modernGpuSeries(name).isNotEmpty;
+
+/// True bila nama model seri GTX lawas (bukan RTX).
+bool isGtxGpuModel(String? name) =>
+    RegExp(r'\bgtx\b').hasMatch((name ?? '').toLowerCase());
+
 class Benchmark {
   const Benchmark(this.data);
 
@@ -170,6 +189,17 @@ class Benchmark {
       return (_numOf(a, 'price_usd') ?? 0)
           .compareTo(_numOf(b, 'price_usd') ?? 0);
     });
+
+    // GPU: arsitektur modern (RTX/RX 6000+/Arc) didahulukan di atas
+    // GTX lawas; urutan skor mentah dipertahankan di dalam tiap
+    // kelompok (stable sort). Kategori lain tidak berubah.
+    if (componentType == 'gpu') {
+      stableSort(pool, (a, b) {
+        final aModern = isModernGpuModel(a['name'] as String? ?? '') ? 1 : 0;
+        final bModern = isModernGpuModel(b['name'] as String? ?? '') ? 1 : 0;
+        return bModern.compareTo(aModern);
+      });
+    }
 
     return [
       for (final entry in pool.take(maxResults))
@@ -557,6 +587,17 @@ class Benchmark {
       return (_numOf(a, 'price_usd') ?? 0)
           .compareTo(_numOf(b, 'price_usd') ?? 0);
     });
+
+    // GPU: sama seperti jalur PassMark — arsitektur modern didahulukan
+    // di atas GTX lawas, urutan skor konsensus dipertahankan di dalam
+    // tiap kelompok (stable sort). Kategori lain tidak berubah.
+    if (componentType == 'gpu') {
+      stableSort(pool, (a, b) {
+        final aModern = isModernGpuModel(a['name'] as String? ?? '') ? 1 : 0;
+        final bModern = isModernGpuModel(b['name'] as String? ?? '') ? 1 : 0;
+        return bModern.compareTo(aModern);
+      });
+    }
 
     final out = <Map<String, Object?>>[];
     for (final e in pool.take(maxResults)) {
