@@ -64,6 +64,56 @@ Future<AnalysisOutcome> _analyze(
   ));
 }
 
+/// ListingsSource palsu yang MEREKAM argumen categories tiap panggilan
+/// pcListings — untuk membuktikan peta kategori DB (fix retailCatsMap:
+/// dulu 'vga'/'processor'/'ssd' sehingga RPC tak pernah mengembalikan
+/// listing komponen untuk gpu/cpu/storage).
+class _RecordingListings implements ListingsSource {
+  _RecordingListings([this.rows = const []]);
+
+  final List<ListingRow> rows;
+  final List<List<String>> calls = [];
+
+  @override
+  Future<List<ListingRow>> pcListings({
+    String? modelNum,
+    required List<String> categories,
+  }) async {
+    calls.add(List<String>.of(categories));
+    return rows;
+  }
+
+  @override
+  Future<List<Map<String, Object?>>> laptopUnits({
+    required List<String> tokens,
+  }) async =>
+      [];
+
+  @override
+  Future<List<Map<String, Object?>>> pcComponents({
+    required List<String> tokens,
+  }) async =>
+      [];
+
+  @override
+  Future<DateTime?> latestScrapedAt() async => null;
+}
+
+Future<(_RecordingListings, List<ComparisonData>)> _search(
+  String query, {
+  String? componentType,
+  List<ListingRow> rows = const [],
+}) async {
+  final fake = _RecordingListings(rows);
+  final engine = AnalysisEngine(BenchmarkData.fromMaps(), fake);
+  final comps = await engine.search(AnalyzeRequestData(
+    mode: 'pc',
+    query: query,
+    componentType: componentType,
+  ));
+  return (fake, comps);
+}
+
 void main() {
   group('canonicalCondition', () {
     test('peta UI -> DB dan lolos nilai DB', () {
@@ -206,4 +256,148 @@ void main() {
       expect(outBaru.result.score, outNew.result.score);
     });
   });
+
+  group('kategori DB untuk pcListings (fix retailCatsMap)', () {
+    test("gpu -> ['pc','gpu']", () async {
+      final (fake, _) = await _search('RTX 3050', componentType: 'gpu');
+      expect(fake.calls, [
+        ['pc', 'gpu'],
+      ]);
+    });
+
+    test("cpu -> ['pc','cpu']", () async {
+      final (fake, _) = await _search('Ryzen 5 5600', componentType: 'cpu');
+      expect(fake.calls, [
+        ['pc', 'cpu'],
+      ]);
+    });
+
+    test("storage -> ['pc','storage'] (panggilan awal + fallback)", () async {
+      final (fake, _) =
+          await _search('SSD NVMe 1TB', componentType: 'storage');
+      expect(fake.calls.length, 2);
+      expect(fake.calls.every((c) => c.join(',') == 'pc,storage'), isTrue);
+    });
+
+    test("motherboard -> ['pc','motherboard']", () async {
+      final (fake, _) = await _search('B450M', componentType: 'motherboard');
+      expect(fake.calls.every((c) => c.join(',') == 'pc,motherboard'), isTrue);
+    });
+
+    test("ram -> ['pc','ram']", () async {
+      final (fake, _) = await _search('RAM DDR4 16GB', componentType: 'ram');
+      expect(fake.calls.every((c) => c.join(',') == 'pc,ram'), isTrue);
+    });
+
+    test("ctype null -> daftar default nama DB", () async {
+      final (fake, _) = await _search('meja kerja');
+      expect(fake.calls.isNotEmpty, isTrue);
+      expect(
+        fake.calls.every(
+          (c) => c.join(',') == 'pc,gpu,cpu,motherboard,ram,storage',
+        ),
+        isTrue,
+      );
+    });
+
+    test("ujung-ke-ujung 3050 bekas lewat peta baru: median, bukan ML",
+        () async {
+      final rows = [
+        _row('VGA RTX 3050', 3300000, 'second'),
+        _row('VGA RTX 3050 6GB', 3350000, 'second'),
+        _row('MSI RTX 3050 Ventus', 3500000, 'second'),
+        _row('Colorful RTX 3050 8GB', 4000000, 'second'),
+        _row('Galax RTX 3050 6GB', 4550000, 'second'),
+      ];
+      final fake = _RecordingListings(rows);
+      final engine = AnalysisEngine(BenchmarkData.fromMaps(), fake);
+      final out = await engine.analyze(AnalyzeRequestData(
+        mode: 'pc',
+        query: 'RTX 3050',
+        price: 3500000,
+        componentType: 'gpu',
+        condition: 'bekas',
+      ));
+      expect(fake.calls, [
+        ['pc', 'gpu'],
+      ]);
+      expect(out.comparisons.length, greaterThanOrEqualTo(5));
+      expect(out.result.isMlEstimate, isFalse);
+      expect(out.result.referencePrice, 3500000);
+      expect(out.result.score, 80.0);
+    });
+  });
+
+  group('kategori DB di fallback bundle (fix instance kedua)', () {
+    test('fallback memanggil pcListings dengan nama DB', () async {
+      final fake = _BundleFallbackListings([
+        _row('VGA RTX 3050', 3500000, 'second'),
+      ]);
+      final engine = AnalysisEngine(BenchmarkData.fromMaps(), fake);
+      await engine.resolveBundleItemPrices('RTX 3050', 'gpu');
+      final fallbackCall =
+          fake.calls.firstWhere((c) => c.$1 == null).$2;
+      expect(fallbackCall.toSet(), {
+        'gpu',
+        'cpu',
+        'motherboard',
+        'ram',
+        'storage',
+        'pc',
+      });
+      expect(
+        fallbackCall
+            .any((c) => ['vga', 'processor', 'ssd', 'harddisk'].contains(c)),
+        isFalse,
+      );
+    });
+
+    test('fallback menemukan baris komponen kalengan', () async {
+      final fake = _BundleFallbackListings([
+        _row('VGA RTX 3050', 3500000, 'second'),
+      ]);
+      final engine = AnalysisEngine(BenchmarkData.fromMaps(), fake);
+      final (ref, newRef, usedRef) =
+          await engine.resolveBundleItemPrices('RTX 3050', 'gpu');
+      expect(usedRef, 3500000);
+      expect(newRef, 5000000);
+      expect(ref, 5000000);
+    });
+  });
 }
+
+/// ListingsSource palsu untuk jalur fallback bundle: panggilan
+/// _pcComparisons (modelNum terisi) mengembalikan kosong supaya fallback
+/// menyala, panggilan fallback (modelNum null) mengembalikan baris
+/// kalengan, sambil merekam argumen (modelNum, categories) tiap panggilan.
+class _BundleFallbackListings implements ListingsSource {
+  _BundleFallbackListings(this.fallbackRows);
+
+  final List<ListingRow> fallbackRows;
+  final List<(String?, List<String>)> calls = [];
+
+  @override
+  Future<List<ListingRow>> pcListings({
+    String? modelNum,
+    required List<String> categories,
+  }) async {
+    calls.add((modelNum, List<String>.of(categories)));
+    return modelNum == null ? fallbackRows : [];
+  }
+
+  @override
+  Future<List<Map<String, Object?>>> laptopUnits({
+    required List<String> tokens,
+  }) async =>
+      [];
+
+  @override
+  Future<List<Map<String, Object?>>> pcComponents({
+    required List<String> tokens,
+  }) async =>
+      [];
+
+  @override
+  Future<DateTime?> latestScrapedAt() async => null;
+}
+

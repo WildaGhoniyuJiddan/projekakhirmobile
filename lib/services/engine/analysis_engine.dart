@@ -436,6 +436,18 @@ String canonicalCondition(String? condition) {
   }
 }
 
+/// Nama kategori komponen di kolom category raw_listings (namespace DB).
+/// SATU sumber untuk _pcComparisons dan fallback bundle — dulu keduanya
+/// memakai nama katalog retail ('vga'/'processor'/'ssd') sehingga RPC
+/// tak pernah mengembalikan listing komponen untuk gpu/cpu/storage.
+const dbComponentCategories = [
+  'gpu',
+  'cpu',
+  'motherboard',
+  'ram',
+  'storage',
+];
+
 class _Scored {
   _Scored(this.sim, this.row, this.cleanTitle);
   final double sim;
@@ -524,23 +536,19 @@ class AnalysisEngine {
   Future<List<ComparisonData>> _pcComparisons(AnalyzeRequestData request) async {
     final ctype = _resolveCtype(request.componentType, request.query);
 
-    const retailCatsMap = <String, List<String>>{
-      'gpu': ['vga'],
-      'cpu': ['processor'],
-      'motherboard': ['motherboard'],
-      'ram': ['ram'],
-      'storage': ['ssd', 'harddisk'],
-    };
-    final retailCats = retailCatsMap[ctype] ??
-        const ['vga', 'processor', 'motherboard', 'ram', 'ssd', 'harddisk'];
+    // Kategori DB untuk ctype ini dari SATU sumber (dbComponentCategories):
+    // ctype tak dikenal -> semua kategori komponen.
+    final dbCats = ctype != null && dbComponentCategories.contains(ctype)
+        ? [ctype]
+        : dbComponentCategories;
 
     // Token angka/model utama dari query user (misal '4060', '12400')
     final mNum = RegExp(r'\b(\d{3,5})\b').firstMatch(request.query);
     final modelNum = mNum?.group(1);
 
     final allCats = ctype != null
-        ? ['pc', ...retailCats]
-        : const ['pc', 'vga', 'processor', 'motherboard', 'ram', 'ssd', 'harddisk'];
+        ? ['pc', ...dbCats]
+        : const ['pc', ...dbComponentCategories];
 
     var rows = await listings.pcListings(modelNum: modelNum, categories: allCats);
 
@@ -548,7 +556,7 @@ class AnalysisEngine {
     // catatan seam di header file); dedupe kunci komposit ganti id.
     if (rows.length < 10 && modelNum == null) {
       final extra =
-          await listings.pcListings(categories: ['pc', ...retailCats]);
+          await listings.pcListings(categories: ['pc', ...dbCats]);
       final seen = <String>{};
       String keyOf(ListingRow r) =>
           '${r.source}|${r.title}|${r.price}|${r.url}';
@@ -1480,10 +1488,10 @@ class AnalysisEngine {
     if (newPrices.isEmpty && anchor == null) {
       final tokens = _modelTokens(query, ctype);
       if (tokens.isNotEmpty) {
+        // Nama kategori DB (dulu nama retail: RPC tak pernah
+        // mengembalikan baris komponen di sini).
         final directRows = await listings.pcListings(
-          categories: const [
-            'vga', 'processor', 'motherboard', 'ram', 'ssd', 'harddisk', 'pc',
-          ],
+          categories: const [...dbComponentCategories, 'pc'],
         );
         var count = 0;
         for (final r in directRows) {
