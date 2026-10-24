@@ -32,7 +32,11 @@ abstract final class DreamStrings {
   static const savedToast = 'Draft tersimpan.';
   static const publishedToast = 'Kartu diterbitkan ke blockchain.';
   static const txHashLabel = 'Tx Hash';
+  static const copyTxHash = 'Salin Tx Hash';
+  static const txHashCopiedToast = 'Tx Hash berhasil disalin ke clipboard.';
   static const contentHashLabel = 'Hash Konten (SHA-256)';
+  static const copyContentHash = 'Salin Hash Konten';
+  static const contentHashCopiedToast = 'Hash konten berhasil disalin ke clipboard.';
   static const verifyQrLabel = 'Pindai untuk verifikasi publik';
   static const pickBuildFirst = 'Pilih kartu tujuan dulu';
 }

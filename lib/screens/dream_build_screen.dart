@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -375,16 +376,108 @@ class _DreamBuildEditorState extends ConsumerState<DreamBuildEditor> {
           ),
           if (_build.isPublished && _build.txHash != null) ...[
             const SizedBox(height: 24),
-            Text(
-              '${DreamStrings.txHashLabel}:\n${_build.txHash}',
-              style: theme.textTheme.bodySmall,
-            ),
-            if (_build.contentHash != null)
-              Text(
-                '${DreamStrings.contentHashLabel}:\n${_build.contentHash}',
-                style: theme.textTheme.bodySmall,
+            Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.verified, color: Colors.green, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${DreamStrings.txHashLabel} (Polygon Amoy)',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: SelectableText(
+                        _build.txHash!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    FilledButton.tonalIcon(
+                      onPressed: () async {
+                        await Clipboard.setData(
+                          ClipboardData(text: _build.txHash!),
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(DreamStrings.txHashCopiedToast),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.copy, size: 18),
+                      label: const Text(DreamStrings.copyTxHash),
+                    ),
+                    if (_build.contentHash != null) ...[
+                      const Divider(height: 24),
+                      Row(
+                        children: [
+                          const Icon(Icons.tag, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              DreamStrings.contentHashLabel,
+                              style: theme.textTheme.titleSmall,
+                            ),
+                          ),
+                          IconButton(
+                            iconSize: 18,
+                            visualDensity: VisualDensity.compact,
+                            tooltip: DreamStrings.copyContentHash,
+                            icon: const Icon(Icons.copy),
+                            onPressed: () async {
+                              await Clipboard.setData(
+                                ClipboardData(text: _build.contentHash!),
+                              );
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      DreamStrings.contentHashCopiedToast,
+                                    ),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      SelectableText(
+                        _build.contentHash!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            const SizedBox(height: 12),
+            ),
+            const SizedBox(height: 16),
             Center(
               child: QrImageView(
                 data: dreamVerifyUrl(_build.id),
@@ -392,6 +485,7 @@ class _DreamBuildEditorState extends ConsumerState<DreamBuildEditor> {
                 backgroundColor: Colors.white,
               ),
             ),
+            const SizedBox(height: 8),
             const Center(child: Text(DreamStrings.verifyQrLabel)),
           ],
           const SizedBox(height: 24),
