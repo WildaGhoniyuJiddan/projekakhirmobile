@@ -25,6 +25,12 @@ class BuildItem {
         name: json['name'] as String? ?? '',
         price: (json['price'] as num?)?.toInt() ?? 0,
       );
+
+  Map<String, dynamic> toJson() => {
+        'component': component,
+        'name': name,
+        'price': price,
+      };
 }
 
 class BuildCardData {
@@ -46,6 +52,12 @@ class BuildCardData {
         total: (json['total'] as num?)?.toInt() ?? 0,
         note: json['note'] as String?,
       );
+
+  Map<String, dynamic> toJson() => {
+        'items': items.map((e) => e.toJson()).toList(),
+        'total': total,
+        if (note != null) 'note': note,
+      };
 }
 
 class ChatReply {

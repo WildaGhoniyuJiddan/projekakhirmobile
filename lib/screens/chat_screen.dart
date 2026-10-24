@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:worthbang/utils/rupiah.dart';
 import 'package:worthbang/core/theme/monex_theme.dart';
@@ -20,10 +23,14 @@ class ChatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
+  static const _historyKey = 'dodo_chat_history_v1';
+
   final _input = TextEditingController();
   final _scroll = ScrollController();
   final List<_Bubble> _bubbles = [];
   bool _sending = false;
+
+  bool get _hasUserMessages => _bubbles.any((b) => b.role == 'user');
 
   @override
   void initState() {
@@ -33,6 +40,89 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       text: AppStrings.chatWelcome,
       excludeFromHistory: true,
     ));
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_historyKey);
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          final loaded = decoded
+              .whereType<Map>()
+              .map((e) => _Bubble.fromJson(Map<String, dynamic>.from(e)))
+              .toList();
+          if (loaded.isNotEmpty && mounted) {
+            setState(() {
+              _bubbles.clear();
+              _bubbles.addAll(loaded);
+            });
+            _scrollDown();
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final toSave = _bubbles
+          .where((b) => !b.text.startsWith(AppStrings.chatError))
+          .map((b) => b.toJson())
+          .toList();
+      await prefs.setString(_historyKey, jsonEncode(toSave));
+    } catch (_) {}
+  }
+
+  Future<void> _confirmClear() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(AppStrings.chatClearConfirmTitle),
+        content: const Text(AppStrings.chatClearConfirmMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(AppStrings.cancelButton),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: MonexColors.danger,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text(AppStrings.chatClearButton),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_historyKey);
+    } catch (_) {}
+
+    setState(() {
+      _bubbles.clear();
+      _bubbles.add(const _Bubble(
+        role: 'assistant',
+        text: AppStrings.chatWelcome,
+        excludeFromHistory: true,
+      ));
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(AppStrings.chatClearedToast),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
@@ -68,6 +158,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _input.clear();
     });
     _scrollDown();
+    _saveHistory();
     try {
       final reply =
           await ref.read(chatApiProvider).ask(text, history: history);
@@ -77,6 +168,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             _Bubble(role: 'assistant', text: reply.reply, build: reply.build));
         _sending = false;
       });
+      _saveHistory();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -93,7 +185,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.chatTitle)),
+      appBar: AppBar(
+        title: const Text(AppStrings.chatTitle),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: AppStrings.chatNew,
+            onPressed: _sending || !_hasUserMessages ? null : _confirmClear,
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -174,6 +275,23 @@ class _Bubble {
         .join('; ');
     return '$text [Rakitan: $parts | Total: ${formatRupiah(b.total)}]';
   }
+
+  Map<String, dynamic> toJson() => {
+        'role': role,
+        'text': text,
+        if (build != null) 'build': build!.toJson(),
+        'excludeFromHistory': excludeFromHistory,
+      };
+
+  factory _Bubble.fromJson(Map<String, dynamic> json) => _Bubble(
+        role: json['role'] as String? ?? 'assistant',
+        text: json['text'] as String? ?? '',
+        build: json['build'] == null
+            ? null
+            : BuildCardData.fromJson(
+                Map<String, dynamic>.from(json['build'] as Map)),
+        excludeFromHistory: json['excludeFromHistory'] as bool? ?? false,
+      );
 }
 
 class _ChatBubble extends StatelessWidget {

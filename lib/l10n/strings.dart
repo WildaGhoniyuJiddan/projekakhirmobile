@@ -199,6 +199,12 @@ abstract final class AppStrings {
       'Halo! Aku Dodo 🤖. Tanya soal harga komponen, minta rakitan PC, atau tanya fitur aplikasi ini.';
   static const chatError = 'Gagal menghubungi Dodo';
   static const buildCardTitle = 'Rakitan rekomendasi';
+  static const chatNew = 'Mulai Chat Baru';
+  static const chatClearConfirmTitle = 'Mulai Chat Baru?';
+  static const chatClearConfirmMessage =
+      'Riwayat percakapan sebelumnya akan dihapus dan Anda dapat memulai sesi percakapan baru.';
+  static const chatClearButton = 'Hapus & Mulai Baru';
+  static const chatClearedToast = 'Riwayat percakapan telah dihapus.';
 
   // Profil (T14).
   static const profileScreenTitle = 'Profil';
