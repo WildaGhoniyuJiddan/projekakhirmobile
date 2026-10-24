@@ -1,9 +1,17 @@
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'scan_price_parser.dart';
+
+/// Provider IScanPriceService untuk aplikasi (dapat di-override di test).
+final scanPriceServiceProvider = Provider<IScanPriceService>((ref) {
+  final service = MlKitScanPriceService();
+  ref.onDispose(() => service.dispose());
+  return service;
+});
 
 /// Kontrak hasil operasi Pindai Harga, seragam dengan pola ApiResult di aplikasi.
 class ScanServiceResult {

@@ -10,6 +10,7 @@ abstract final class AppStrings {
   static const tabHome = 'Beranda';
   static const tabSearch = 'Cari';
   static const tabHistory = 'Riwayat';
+  static const tabScanPrice = 'Pindai Harga';
   static const tabProfile = 'Profil';
 
   // Placeholder tiap tab (diganti screen asli di tiket berikutnya).

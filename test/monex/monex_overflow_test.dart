@@ -326,6 +326,7 @@ void main() {
     test('label tab Bahasa Indonesia tetap dipakai', () {
       expect(AppStrings.tabHome, isNotEmpty);
       expect(AppStrings.tabSearch, isNotEmpty);
+      expect(AppStrings.tabScanPrice, isNotEmpty);
       expect(AppStrings.tabHistory, isNotEmpty);
       expect(AppStrings.tabProfile, isNotEmpty);
     });

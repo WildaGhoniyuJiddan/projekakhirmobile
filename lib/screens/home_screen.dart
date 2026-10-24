@@ -8,6 +8,7 @@ import 'package:worthbang/l10n/dream_strings.dart';
 import 'package:worthbang/screens/builder_screen.dart';
 import 'package:worthbang/screens/dream_build_screen.dart';
 import 'package:worthbang/screens/chat_screen.dart';
+import 'package:worthbang/screens/history_screen.dart';
 import 'package:worthbang/screens/mini_games_screen.dart';
 import 'package:worthbang/screens/price_check_screen.dart';
 import 'package:worthbang/screens/result_screen.dart';
@@ -127,6 +128,13 @@ class HomeScreen extends StatelessWidget {
         ),
         title: const Text(AppStrings.homeTitle),
         titleSpacing: 4,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history_rounded),
+            tooltip: AppStrings.historyScreenTitle,
+            onPressed: () => _openPage(context, const HistoryListScreen()),
+          ),
+        ],
       ),
       // FAB khusus chatbot, HANYA di Beranda root: FAB tinggal di
       // Scaffold ini, jadi otomatis tertutup tiap user masuk menu

@@ -17,7 +17,7 @@ import 'package:worthbang/l10n/strings.dart';
 /// Kunci navigator per tab — masing-masing tab punya back stack sendiri.
 final _homeNavKey = GlobalKey<NavigatorState>(debugLabel: 'homeNav');
 final _searchNavKey = GlobalKey<NavigatorState>(debugLabel: 'searchNav');
-final _historyNavKey = GlobalKey<NavigatorState>(debugLabel: 'historyNav');
+final _scanPriceNavKey = GlobalKey<NavigatorState>(debugLabel: 'scanPriceNav');
 final _profileNavKey = GlobalKey<NavigatorState>(debugLabel: 'profileNav');
 
 /// Router aplikasi sebagai provider agar bisa bereaksi ke perubahan auth.
@@ -48,6 +48,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
       ),
+      GoRoute(
+        path: '/history',
+        builder: (context, state) => const HistoryScreen(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             BottomNavShell(navigationShell: navigationShell),
@@ -71,11 +75,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
-            navigatorKey: _historyNavKey,
+            navigatorKey: _scanPriceNavKey,
             routes: [
               GoRoute(
-                path: '/history',
-                builder: (context, state) => const HistoryScreen(),
+                path: '/scan-price',
+                builder: (context, state) => const ScanPriceTabScreen(),
               ),
             ],
           ),
@@ -94,7 +98,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
-/// Shell bottom navigation: 4 tab sesuai PRD (Beranda, Cari, Riwayat, Profil).
+/// Shell bottom navigation: 4 tab (Beranda, Cari, Pindai Harga, Profil).
 /// Banner offline (T15) tampil di atas konten semua tab.
 ///
 /// Shell ini hanya ter-render untuk user terautentikasi (guard router),
@@ -193,9 +197,9 @@ class _BottomNavShellState extends ConsumerState<BottomNavShell> {
                             label: AppStrings.tabSearch,
                           ),
                           MonexNavItem(
-                            icon: Icons.history_outlined,
-                            selectedIcon: Icons.history,
-                            label: AppStrings.tabHistory,
+                            icon: Icons.document_scanner_outlined,
+                            selectedIcon: Icons.document_scanner,
+                            label: AppStrings.tabScanPrice,
                           ),
                           MonexNavItem(
                             icon: Icons.person_outline,
