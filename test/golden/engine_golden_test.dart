@@ -303,50 +303,81 @@ void main() {
   });
 
   group('consensus — betterAlternativesConsensus', () {
-    test('RTX 3060 @6jt → kosong (tak ada kandidat +10 poin masuk budget)',
+    test('RTX 3060 @6jt → GTX 1080 Ti (seleksi PassMark, bukan konsensus)',
         () {
+      // ALASAN PERUBAHAN (Okt 2026, perintah Dan): seleksi alternatif
+      // kini memakai PassMark >= 10% di atas input, bukan skor konsensus
+      // +10 poin. Ekspektasi lama (kosong) tidak berlaku: GTX 1080 Ti
+      // PassMark 18596 lolos ambang 10% di atas RTX 3060 (16895) dan
+      // muat budget, sehingga kini muncul sebagai satu-satunya alternatif.
+      final alts =
+          betterAlternativesConsensus('RTX 3060', 'gpu', 6000000, 16000);
+      expect(alts, hasLength(1));
+      expect(alts[0].name, 'GeForce GTX 1080 Ti');
+      expect(alts[0].score, 18596);
+      expect(alts[0].estPriceIdr, 4839472);
+      expect(alts[0].gainPercent, 10);
+      expect(alts[0].vramGb, isNull);
+      expect(alts[0].tierLabel, 'Midrange (1080p Ultra / 1440p Mid)');
+      expect(alts[0].scoreSource, 'passmark');
+    });
+
+    test('RTX 4060 @5.5jt → kosong (tak ada PassMark >= 10% masuk budget)',
+        () {
+      // ALASAN PERUBAHAN (Okt 2026, perintah Dan): ekspektasi lama
+      // [RTX 3060 (75), RTX 2060 (66)] memakai skor konsensus dan tidak
+      // berlaku lagi. Di bawah seleksi PassMark, ambang untuk RTX 4060
+      // (19489) adalah 21438; RTX 3060 (16895) dan RTX 2060 berada di
+      // bawah ambang sehingga tersaring, dan tidak ada kandidat lain
+      // yang muat budget 5,5jt.
       expect(
-          betterAlternativesConsensus('RTX 3060', 'gpu', 6000000, 16000),
+          betterAlternativesConsensus('RTX 4060', 'gpu', 5500000, 16000),
           isEmpty);
     });
 
-    test('RTX 4060 @5.5jt → RTX 3060 lalu RTX 2060 (modern didahulukan)',
+    test(
+        'RTX 4060 @20jt consensus → semua alternatif PassMark di atas input, tanpa RTX 3060',
         () {
-      // PENYIMPANGAN SENGAJA dari urutan skor mentah Python (Okt 2026):
-      // kebijakan alternatif GPU mendahulukan arsitektur modern (RTX)
-      // di atas GTX lawas. NILAI (skor, harga, gain, sumber) tetap sama
-      // persis dengan panen Python; hanya urutannya yang berubah, dan
-      // GTX 1080-Ti (skor mentah 78, tertinggi) kini jatuh ke urutan 3
-      // karena dua slot teratas diisi kandidat modern.
+      // Tes kasus Dan: RTX 3060 konsensus 75,41 (n=1) tidak boleh lagi
+      // muncul sebagai "lebih baik" dari RTX 4060, karena PassMark-nya
+      // 16895 < 19489. Nilai di bawah adalah hasil engine nyata.
       final alts =
-          betterAlternativesConsensus('RTX 4060', 'gpu', 5500000, 16000);
+          betterAlternativesConsensus('RTX 4060', 'gpu', 20000000, 16000);
       expect(alts, hasLength(2));
-      expect(alts[0].name, 'Nvidia RTX 3060');
-      expect(alts[0].score, 75);
-      expect(alts[0].estPriceIdr, 4928000);
-      expect(alts[0].gainPercent, 160);
-      expect(alts[0].vramGb, 12);
-      expect(alts[1].name, 'Nvidia RTX 2060');
-      expect(alts[1].score, 66);
-      expect(alts[1].estPriceIdr, 2464000);
-      expect(alts[1].gainPercent, 128);
-      expect(alts[1].vramGb, 6);
-      expect(alts[1].nSources, 1);
+      expect(alts[0].name, 'GeForce RTX 5070 Ti');
+      expect(alts[0].score, 32338);
+      expect(alts[0].gainPercent, 66);
+      expect(alts[1].name, 'GeForce RTX 4070 SUPER');
+      expect(alts[1].score, 29946);
+      expect(alts[1].gainPercent, 54);
+      expect(alts[1].vramGb, 12);
+      expect(
+          alts.every((a) => a.score > 19489), isTrue,
+          reason: 'tidak boleh ada alternatif PassMark di bawah input');
+      expect(alts.any((a) => a.name.contains('3060')), isFalse,
+          reason: 'RTX 3060 PassMark-nya di bawah RTX 4060');
+      expect(alts.every((a) => a.scoreSource == 'passmark'), isTrue);
     });
 
-    test('Ryzen 5 5600 @2.5jt → 5500GT lalu i5-12600', () {
+    test('Ryzen 5 5600 @2.5jt → 3900X lalu 8400F (seleksi PassMark)', () {
+      // ALASAN PERUBAHAN (Okt 2026, perintah Dan): ekspektasi lama
+      // [5500GT (80), i5-12600 (77)] memakai skor konsensus dan tidak
+      // berlaku lagi. Di bawah seleksi PassMark >= 10% di atas Ryzen 5
+      // 5600, urutan skor desc adalah 3900X (32475, +51%) lalu 8400F
+      // (24387, +13%), keduanya muat budget 2,5jt. Nilai dari engine nyata.
       final alts =
           betterAlternativesConsensus('Ryzen 5 5600', 'cpu', 2500000, 16000);
       expect(alts, hasLength(2));
-      expect(alts[0].name, 'AMD Ryzen 5 5500GT');
-      expect(alts[0].score, 80);
-      expect(alts[0].estPriceIdr, 2376000);
-      expect(alts[0].gainPercent, 38);
-      expect(alts[1].name, 'Intel Core i5-12600');
-      expect(alts[1].score, 77);
-      expect(alts[1].estPriceIdr, 2428800);
-      expect(alts[1].gainPercent, 34);
-      expect(alts[1].nSources, 3);
+      expect(alts[0].name, 'AMD Ryzen 9 3900X');
+      expect(alts[0].score, 32475);
+      expect(alts[0].estPriceIdr, 2410320);
+      expect(alts[0].gainPercent, 51);
+      expect(alts[0].tierLabel, 'High End (Heavy Productivity & Gaming)');
+      expect(alts[1].name, 'AMD Ryzen 5 8400F');
+      expect(alts[1].score, 24387);
+      expect(alts[1].estPriceIdr, 2094400);
+      expect(alts[1].gainPercent, 13);
+      expect(alts[1].tierLabel, 'Midrange (Solid Gaming & Multitasking)');
     });
 
     test('nama ngawur → kosong', () {

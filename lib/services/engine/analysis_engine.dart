@@ -1097,7 +1097,12 @@ class AnalysisEngine {
     } else {
       alts = benchmark.betterAlternativesConsensus(
           request.query, ctype, request.price, usdToIdr.toDouble());
-      useConsensus = alts.isNotEmpty;
+      // Sejak Okt 2026 seleksi konsensus memakai PassMark (bukan skor
+      // konsensus), jadi label sumber mengikuti score_source hasil,
+      // bukan asumsi jalur: 'consensus' hanya bila map masih berlabel
+      // demikian (kini tidak pernah, karena seleksi mensyaratkan PassMark).
+      useConsensus =
+          alts.isNotEmpty && alts[0]['score_source'] == 'consensus';
     }
     if (alts.isEmpty) return ('', const []);
     final best = alts[0];
@@ -1394,27 +1399,44 @@ class AnalysisEngine {
           condition: cond,
         );
         if (ml != null) {
-          // Skor/verdict/delta konsisten dengan titik estimasi ML
-          // (scorePrice atas satu referensi = estimasi ML); rentang
-          // median diganti rentang perkiraan model (0.67 sigma).
+          // Verdict + skor jalur ML mengikuti RENTANG PERKIRAAN
+          // [low, high] (Okt 2026, perintah Dan), bukan scorePrice atas
+          // titik estimasi: di bawah low = worth it, di dalam rentang =
+          // wajar (linear 84 -> 55), di atas high = kemahalan. Skor
+          // dibulatkan ke bilangan bulat. Tidak ada "opsi lebih baik"
+          // di jalur ini: rekomendasi berdiri sendiri sebagai
+          // perkiraan, dan advice/alternatif benchmark tidak ditempel
+          // (lihat pemakaian mlFired di bawah).
+          final low = pyRoundInt(ml.low);
+          final high = pyRoundInt(ml.high);
           final base = scorePrice(request.price, [pyRoundInt(ml.price)]);
-          final mlRec = switch (base.verdict) {
-            'worth it' =>
-              'Harga berada di bawah estimasi model dan layak dipertimbangkan.',
-            'wajar' => 'Harga masih berada di rentang perkiraan model.',
-            'ada opsi lebih baik' =>
-              'Ada estimasi lebih rendah; pertimbangkan negosiasi atau opsi lain.',
-            'kemahalan' => 'Harga berada cukup jauh di atas estimasi model.',
-            _ => base.recommendation,
-          };
+          final String verdict;
+          final int score;
+          final String mlRec;
+          if (request.price <= low) {
+            verdict = 'worth it';
+            final over = (low - request.price) / low * 30;
+            score = (90 + (over < 10 ? over : 10)).round();
+            mlRec =
+                'Harga berada di bawah rentang perkiraan model dan layak dipertimbangkan.';
+          } else if (request.price <= high) {
+            verdict = 'wajar';
+            score = (84 - (request.price - low) / (high - low) * 29).round();
+            mlRec = 'Harga masih berada di rentang perkiraan model.';
+          } else {
+            verdict = 'kemahalan';
+            final over = (request.price - high) / high * 80;
+            score = (50 - (over < 50 ? over : 50)).round();
+            mlRec = 'Harga berada di atas rentang perkiraan model.';
+          }
           result = ScoreResult(
-            score: base.score,
-            verdict: base.verdict,
+            score: score.toDouble(),
+            verdict: verdict,
             recommendation: mlRec,
             referencePrice: pyRoundInt(ml.price),
             deltaPercent: base.deltaPercent,
-            fairPriceLow: pyRoundInt(ml.low),
-            fairPriceHigh: pyRoundInt(ml.high),
+            fairPriceLow: low,
+            fairPriceHigh: high,
             isMlEstimate: true,
           );
           mlFired = true;
@@ -1477,7 +1499,24 @@ class AnalysisEngine {
         : _benchmarkAdvice(request, result);
 
     var fullRec = result.recommendation;
-    if (advice.isNotEmpty) fullRec = '$fullRec $advice';
+    // Jalur ML (mlFired) berdiri sendiri sebagai perkiraan: advice
+    // benchmark tidak ditempel (perintah Dan: tidak ada "opsi lebih
+    // baik" di jalur ML — baik sebagai teks maupun daftar alternatif).
+    if (!mlFired && advice.isNotEmpty) {
+      fullRec = '$fullRec $advice';
+    } else if (!mlFired && request.mode == 'pc' && advice.isEmpty) {
+      // P5 (Okt 2026, perintah Dan): advice kosong harus eksplisit,
+      // bukan diam. Pembedaan dikenali/tidak memakai guard yang sama
+      // dengan _benchmarkAdvice (PassMark atau konsensus); jalur laptop
+      // tidak diubah (di luar scope P5).
+      final ctype = _resolveCtype(request.componentType, request.query);
+      final recognized =
+          benchmark.passmarkScore(request.query, ctype) != null ||
+              benchmark.consensusLookup(request.query, ctype) != null;
+      fullRec = recognized
+          ? '$fullRec Tidak ada alternatif benchmark yang lebih baik dalam budget ini.'
+          : '$fullRec Model ini tidak dikenali di data benchmark, jadi tidak ada alternatif yang bisa disarankan.';
+    }
 
     final finalResult = ScoreResult(
       score: result.score,
@@ -1498,7 +1537,9 @@ class AnalysisEngine {
       result: finalResult,
       comparisons: compsFinal,
       freshness: await _freshness(selectedSource),
-      alternatives: alternatives,
+      // Jalur ML: daftar alternatif dikosongkan (alasan sama seperti
+      // di atas — daftar itu adalah presentasi "opsi lebih baik").
+      alternatives: mlFired ? const <AlternativeData>[] : alternatives,
     );
   }
 

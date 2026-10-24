@@ -543,9 +543,17 @@ class Benchmark {
     return 'Dasar (Basic)';
   }
 
-  /// Port better_alternatives_consensus(): kandidat berdasar skor
-  /// KONSENSUS (0-100). Syarat: skor >= 10 poin di atas user DAN
-  /// estimasi harga <= penawaran.
+  /// Port better_alternatives_consensus() — DIPERBARUI Okt 2026: seleksi
+  /// kandidat WAJIB memakai skor PassMark dari benchmark_scores.json,
+  /// bukan skor konsensus. Alasan: consensus_scores.json mencampur
+  /// n_sources=1 dengan n_sources>=2 sehingga klaim gain menyesatkan
+  /// (mis. RTX 3060 konsensus 75,41 n=1 diklaim +160% dari RTX 4060,
+  /// padahal PassMark 16.895 vs 19.489 = -13%).
+  /// Syarat: PassMark kandidat >= 10% di atas PassMark input; gain dari
+  /// rasio PassMark (konvensi pyRoundInt, sama seperti betterAlternatives).
+  /// Input tak ditemukan di PassMark -> daftar kosong (tanpa fallback
+  /// konsensus untuk seleksi). Kebijakan modern-first (stable-sort GPU)
+  /// tetap berlaku, hanya di antara kandidat yang lolos syarat 10%.
   List<Map<String, Object?>> betterAlternativesConsensus(
     String query,
     String? componentType,
@@ -553,18 +561,17 @@ class Benchmark {
     double usdToIdr, {
     int maxResults = 2,
   }) {
-    final base = consensusLookup(query, componentType);
+    final base = passmarkScore(query, componentType);
     if (base == null || priceIdr == 0) return [];
-    final baseScore = _numOf(base, 'consensus_score');
+    final baseScore = _numOf(base, 'score');
     if (baseScore == null) return [];
-    final minScore = baseScore + 10;
+    final minScore = baseScore * 1.10;
     final baseVram = componentType == 'gpu' ? extractVramGb(query) : null;
 
     var pool = <BenchEntry>[
-      for (final e in _consensusCatalogOf(componentType).values)
+      for (final e in _catalog(componentType).values)
         if (e is Map &&
-            (_numOf(e.cast<String, dynamic>(), 'consensus_score') ?? -1) >=
-                minScore &&
+            (_numOf(e.cast<String, dynamic>(), 'score') ?? -1) >= minScore &&
             _truthyPrice(e.cast<String, dynamic>()) &&
             (_numOf(e.cast<String, dynamic>(), 'price_usd') ?? 0) *
                     usdToIdr *
@@ -581,15 +588,15 @@ class Benchmark {
     }
 
     stableSort(pool, (a, b) {
-      final byScore = (_numOf(b, 'consensus_score') ?? 0)
-          .compareTo(_numOf(a, 'consensus_score') ?? 0);
+      final byScore =
+          (_numOf(b, 'score') ?? 0).compareTo(_numOf(a, 'score') ?? 0);
       if (byScore != 0) return byScore;
       return (_numOf(a, 'price_usd') ?? 0)
           .compareTo(_numOf(b, 'price_usd') ?? 0);
     });
 
     // GPU: sama seperti jalur PassMark — arsitektur modern didahulukan
-    // di atas GTX lawas, urutan skor konsensus dipertahankan di dalam
+    // di atas GTX lawas, urutan skor PassMark dipertahankan di dalam
     // tiap kelompok (stable sort). Kategori lain tidak berubah.
     if (componentType == 'gpu') {
       stableSort(pool, (a, b) {
@@ -601,22 +608,17 @@ class Benchmark {
 
     final out = <Map<String, Object?>>[];
     for (final e in pool.take(maxResults)) {
-      var gainPct = 0;
-      if (baseScore > 0) {
-        gainPct =
-            pyRoundInt(((_numOf(e, 'consensus_score') ?? 0) / baseScore - 1) * 100);
-      }
       out.add(<String, Object?>{
         'name': e['name'],
-        'score': pyRoundInt((_numOf(e, 'consensus_score') ?? 0).toDouble()),
+        'score': _numOf(e, 'score')?.toInt(),
         'est_price_idr': ((_numOf(e, 'price_usd') ?? 0) * usdToIdr * 1.10).toInt(),
-        'gain_percent': gainPct,
+        'gain_percent':
+            pyRoundInt(((_numOf(e, 'score') ?? 0) / baseScore - 1) * 100),
         'vram_gb': componentType == 'gpu'
             ? extractVramGb(e['name'] as String? ?? '')
             : null,
-        'tier_label': consensusTierLabel(_numOf(e, 'consensus_score')),
-        'n_sources': e['n_sources'],
-        'score_source': 'consensus',
+        'tier_label': getTierLabel(_numOf(e, 'score'), componentType),
+        'score_source': 'passmark',
       });
     }
     return out;

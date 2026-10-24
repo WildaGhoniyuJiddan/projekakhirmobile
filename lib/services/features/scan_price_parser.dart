@@ -40,6 +40,83 @@ class ScanPriceParser {
     caseSensitive: false,
   );
 
+  // P1: baris toko (nama toko / pelapak) — dibuang hanya bila tanpa token model.
+  static final RegExp _storeLineRegex = RegExp(
+    r'\b(shop|store|toko|official|grosir|lapak|seller|penjual|distributor)\b',
+    caseSensitive: false,
+  );
+
+  // P1: baris URL dan nomor telepon/placeholder — selalu dibuang.
+  static final RegExp _urlLineRegex = RegExp(
+    r'https?://|www\.|\.(id|com|co\.id|net|org|shop|store)/',
+    caseSensitive: false,
+  );
+  static final RegExp _phoneLineRegex = RegExp(
+    r'\b08[\dXx]{8,}\b|\bNAMA_(TOKO|PENJUAL|SELLER)\b',
+  );
+
+  // P1: label tombol kartu/listing — dibuang bila kata pertamanya label tombol
+  // dan barisnya tanpa token model (dicek setelah token, lihat _isDropLine).
+  static const _buttonLabels = {
+    'buka',
+    'beli',
+    'chat',
+    'keranjang',
+    'checkout',
+    'tambah',
+    'bagikan',
+    'simpan',
+    'ikuti',
+    'kunjungi',
+    'lihat',
+    'selengkapnya',
+    'hubungi',
+  };
+
+  // P1: kata generik kategori toko — baris yang SELURUH katanya generik
+  // (mis. "Komponen Komputer") dibuang bila tanpa token model.
+  static const _genericCategoryWords = {
+    'komponen',
+    'komputer',
+    'aksesoris',
+    'elektronik',
+    'gadget',
+    'hardware',
+    'sparepart',
+    'peripheral',
+    'laptop',
+    'pc',
+    'notebook',
+    'dan',
+  };
+
+  // P1: token model hardware. Cakupan (disetujui Dan): GPU (GTX/RTX/RX +
+  // angka, varian Ti/Super/XT/XTX), CPU (Ryzen, Core iX, bare iX, Ultra),
+  // RAM (DDR4/DDR5), storage (SSD/NVMe/HDD), chipset motherboard
+  // (huruf + 3 digit, mis. B550/X570/H610/B760/Z790/A520/X670),
+  // seri laptop (ThinkPad, ROG, TUF, Pavilion, IdeaPad, Aspire,
+  // VivoBook, Zenbook, Legion, Nitro, LOQ, MacBook, dan sejenisnya).
+  static final RegExp _modelTokenRegex = RegExp(
+    r'\b(rtx|gtx)\s*-?\s*\d{3,4}\s*(ti|super)?\b'
+    r'|\brx\s*-?\s*\d{3,4}\s*(xt|xtx)?\b'
+    r'|\bryzen\s*[3579]\b'
+    r'|\bcore\s*i[3579]\b'
+    r'|\bi[3579]\s*-?\s*\d{4,5}[a-z]{0,3}\b'
+    r'|\bultra\s*[3579]\b'
+    r'|\bddr[45]\b'
+    r'|\bssd\b|\bnvme\b|\bhdd\b|\bhard\s*disk\b'
+    r'|\b[abhxz]\d{3}e?\b'
+    r'|\b(thinkpad|rog|tuf|pavilion|ideapad|aspire|vivobook|zenbook|legion|nitro|loq|macbook|probook|elitebook|latitude|xps|alienware|predator|omen|victus|swift|envy|spectre|yoga)\b',
+    caseSensitive: false,
+  );
+
+  // P1: token spek untuk baris lanjutan judul (GB/TB/MHz, GDDR
+  // toleran typo OCR seperti GDRR5, DDR, NVMe/SSD/HDD).
+  static final RegExp _specTokenRegex = RegExp(
+    r'\b\d+\s*(gb|tb|mhz)\b|\bgd{1,2}r{1,2}\d\b|\bddr[45]\b|\bnvme\b|\bssd\b|\bhdd\b',
+    caseSensitive: false,
+  );
+
   // Pola tanggal cetak label (misal: 24/10/2026, 24-10-26, 2026-10-24).
   static final RegExp _datePatternRegex = RegExp(
     r'\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})\b',
@@ -148,15 +225,23 @@ class ScanPriceParser {
       }
     }
 
-    // Aturan smart default: pilih kandidat terakhir dari primaryCandidates
-    // (karena harga promo biasanya di bawah harga coret). Jika semua harga
-    // berada di baris sekunder, baru fallback ke kandidat terakhir dari allCandidates.
+    // P2 (disetujui Dan): pasangan promo-coret — bila primaryCandidates
+    // TEPAT 2 entri dan harga kecil 50-98% dari harga besar (rasio
+    // integer kecil*100/besar, inklusif), pilih yang KECIL (promo).
+    // Selain itu aturan lama berlaku (primary terakhir, else all terakhir).
     int? smartDefault;
-    if (primaryCandidates.isNotEmpty) {
-      smartDefault = primaryCandidates.last;
-    } else if (allCandidates.isNotEmpty) {
-      smartDefault = allCandidates.last;
+    if (primaryCandidates.length == 2) {
+      final small =
+          primaryCandidates.reduce((a, b) => a < b ? a : b);
+      final big = primaryCandidates.reduce((a, b) => a > b ? a : b);
+      final ratio = big == 0 ? 0 : (small * 100) ~/ big;
+      if (ratio >= 50 && ratio <= 98) {
+        smartDefault = small;
+      }
     }
+    smartDefault ??= primaryCandidates.isNotEmpty
+        ? primaryCandidates.last
+        : (allCandidates.isNotEmpty ? allCandidates.last : null);
 
     return (candidates: allCandidates, defaultPrice: smartDefault);
   }
@@ -272,14 +357,64 @@ class ScanPriceParser {
 
     if (candidateLines.isEmpty) return '';
 
-    // Gabungkan maksimal 2 baris kandidat teratas agar merek (baris 1) +
-    // tipe (baris 2) menyatu. Contoh: "SAMSUNG" + "SSD 980 PRO 1TB NVME".
-    if (candidateLines.length >= 2 &&
-        candidateLines[0].length <= 28 &&
-        (candidateLines[0].length + candidateLines[1].length) <= 65) {
-      return '${candidateLines[0]} ${candidateLines[1]}';
+    // P1: saring baris toko/URL/tombol/kategori generik (lihat _isDropLine),
+    // lalu pilih baris bertoken sebagai inti query.
+    final kept = candidateLines.where((l) => !_isDropLine(l)).toList();
+    if (kept.isEmpty) return '';
+
+    final tokenIndex = kept.indexWhere(_hasModelToken);
+    if (tokenIndex == -1) {
+      // Fallback aturan lama pada baris TERSARING (bukan mentah): gabung
+      // 2 baris pertama bila pendek. Bentuknya sama dengan aturan lama,
+      // tapi nama toko tidak pernah lolos karena sudah tersaring di atas.
+      if (kept.length >= 2 &&
+          kept[0].length <= 28 &&
+          (kept[0].length + kept[1].length) <= 65) {
+        return '${kept[0]} ${kept[1]}';
+      }
+      return kept.first;
     }
 
-    return candidateLines.first;
+    final parts = <String>[];
+    // Merek pendek tepat sebelum baris bertoken ikut (mis. SAMSUNG +
+    // SSD 980 PRO): perilaku lama yang dipertahankan.
+    if (tokenIndex > 0 && kept[tokenIndex - 1].length <= 28) {
+      parts.add(kept[tokenIndex - 1]);
+    }
+    parts.add(kept[tokenIndex]);
+    // Satu baris lanjutan judul (mis. "4gb GDRR5 no pin") ditempel bila
+    // mengandung token spek atau pendek, dan total tetap <= 65.
+    if (tokenIndex + 1 < kept.length) {
+      final next = kept[tokenIndex + 1];
+      final total = parts.join(' ').length + 1 + next.length;
+      if (total <= 65 && (_hasSpecToken(next) || next.length <= 20)) {
+        parts.add(next);
+      }
+    }
+    return parts.join(' ');
   }
+
+  /// P1: true bila baris harus dibuang dari kandidat nama. Urutan sengaja:
+  /// URL/telepon/placeholder selalu dibuang; baris bertoken selalu
+  /// dipertahankan; tombol/toko/kategori-generik dibuang hanya bila
+  /// barisnya tanpa token model.
+  static bool _isDropLine(String line) {
+    final low = line.toLowerCase();
+    if (_urlLineRegex.hasMatch(low)) return true;
+    if (_phoneLineRegex.hasMatch(line)) return true;
+    if (_hasModelToken(line)) return false;
+    final words =
+        low.split(RegExp(r'[^a-z0-9]+')).where((w) => w.isNotEmpty).toList();
+    if (words.isNotEmpty && _buttonLabels.contains(words.first)) return true;
+    if (_storeLineRegex.hasMatch(low)) return true;
+    if (words.isNotEmpty &&
+        words.every((w) => _genericCategoryWords.contains(w))) {
+      return true;
+    }
+    return false;
+  }
+
+  static bool _hasModelToken(String line) => _modelTokenRegex.hasMatch(line);
+
+  static bool _hasSpecToken(String line) => _specTokenRegex.hasMatch(line);
 }

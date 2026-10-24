@@ -173,17 +173,37 @@ void main() {
     });
   });
 
-  group('betterAlternativesConsensus: RTX didahulukan di atas GTX', () {
-    test('RTX 3050 @3,5jt: RTX 4060 (55) di atas GTX 1080 (60)', () {
-      final bench =
-          Benchmark(BenchmarkData.fromMaps(consensus: _gpuConsensus()));
+  group('betterAlternativesConsensus: seleksi PassMark + RTX didahulukan',
+      () {
+    test('RTX 3050 @3,5jt: RTX 4060 (13000) di atas GTX 1080 (14000)', () {
+      // ALASAN PERUBAHAN (Okt 2026, perintah Dan): seleksi kini memakai
+      // PassMark, bukan skor konsensus. Data kalengan lama hanya berisi
+      // peta konsensus (RTX 4060: 55, GTX 1080: 60) sehingga di bawah
+      // aturan baru fungsi mengembalikan kosong; tes ini kini memakai
+      // peta PassMark yang sama dengan grup PassMark di atas (input 3050
+      // = 10000, ambang 10% = 11000, keduanya lolos) dan menegaskan
+      // RTX tetap didahulukan meski skor PassMark mentahnya kalah, dengan
+      // gain dari rasio PassMark (4060: +30%, 1080: +40%).
+      final bench = Benchmark(BenchmarkData.fromMaps(bench: _gpuBench()));
       final alts = bench.betterAlternativesConsensus(
           'RTX 3050', 'gpu', 3500000, 16500);
       expect(alts, hasLength(2));
       expect(alts[0]['name'], 'GeForce RTX 4060');
-      expect(alts[0]['score'], 55);
+      expect(alts[0]['score'], 13000);
+      expect(alts[0]['gain_percent'], 30);
       expect(alts[1]['name'], 'GeForce GTX 1080');
-      expect(alts[1]['score'], 60);
+      expect(alts[1]['score'], 14000);
+      expect(alts[1]['gain_percent'], 40);
+    });
+
+    test('input tanpa PassMark → kosong (tanpa fallback konsensus)', () {
+      // Di bawah aturan baru, model yang hanya ada di peta konsensus
+      // (tanpa skor PassMark) tidak menghasilkan alternatif.
+      final bench =
+          Benchmark(BenchmarkData.fromMaps(consensus: _gpuConsensus()));
+      final alts = bench.betterAlternativesConsensus(
+          'RTX 3050', 'gpu', 3500000, 16500);
+      expect(alts, isEmpty);
     });
   });
 
