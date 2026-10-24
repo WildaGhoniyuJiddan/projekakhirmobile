@@ -59,7 +59,8 @@ Future<void> _pumpScreen(
 
 void main() {
   group('ScanPriceScreen (FakeScanPriceService)', () {
-    testWidgets('guide -> confirm -> Cek Worth It memanggil callback',
+    testWidgets(
+        'hasil OCR lengkap langsung dianalisis otomatis tanpa ketuk Cek Worth It',
         (tester) async {
       String? gotQuery;
       int? gotPrice;
@@ -81,17 +82,46 @@ void main() {
       await tester.tap(find.text('Ambil Foto'));
       await tester.pumpAndSettle();
 
-      // State confirm: nama, harga default, dan chip kandidat tampil.
+      // Analisis sudah terpanggil otomatis; layar konfirmasi tetap tampil
+      // sebagai jaring pengaman koreksi (kembali dari layar hasil).
+      expect(gotQuery, 'RTX 4060 8GB');
+      expect(gotPrice, 5299000);
       expect(find.text('RTX 4060 8GB'), findsOneWidget);
       expect(find.text('5299000'), findsOneWidget);
       expect(find.text('Rp7.500.000'), findsOneWidget);
       expect(find.text('Rp5.299.000'), findsOneWidget);
+    });
 
-      await tester.tap(find.text('Cek Worth It'));
+    testWidgets('OCR tak lengkap berhenti di konfirmasi tanpa analisis',
+        (tester) async {
+      String? gotQuery;
+      int? gotPrice;
+      await _pumpScreen(
+        tester,
+        service: FakeScanPriceService(
+          result: ScanServiceResult.success(
+            const ScanParseResult(
+              query: '',
+              priceCandidates: [5299000],
+              defaultPrice: 5299000,
+              rawText: 'Rp 5.299.000',
+            ),
+          ),
+        ),
+        onAnalyze: (q, p) {
+          gotQuery = q;
+          gotPrice = p;
+        },
+        onFallback: ({initialQuery}) {},
+      );
+
+      await tester.tap(find.text('Ambil Foto'));
       await tester.pumpAndSettle();
 
-      expect(gotQuery, 'RTX 4060 8GB');
-      expect(gotPrice, 5299000);
+      // Nama kosong -> tidak auto-analisis; user melengkapi lalu ketuk manual.
+      expect(gotQuery, isNull);
+      expect(gotPrice, isNull);
+      expect(find.text('Hasil pindaian'), findsOneWidget);
     });
 
     testWidgets('ganti chip harga mengubah harga yang dikirim', (tester) async {

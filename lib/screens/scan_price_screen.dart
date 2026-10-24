@@ -5,6 +5,7 @@ import 'package:worthbang/core/theme/monex_theme.dart';
 import 'package:worthbang/core/widgets/monex_widgets.dart';
 import 'package:worthbang/l10n/strings.dart';
 import 'package:worthbang/utils/rupiah.dart';
+
 import '../services/features/scan_price_parser.dart';
 import '../services/features/scan_price_service.dart';
 
@@ -19,11 +20,11 @@ class ScanPriceScreen extends StatefulWidget {
   /// Callback untuk meneruskan (query, price) ke PriceCheckApi.analyze()
   /// -> ResultScreen. Diimplementasikan di titik pemanggil.
   final Future<void> Function(BuildContext context, String query, int price)
-      onAnalyzeRequested;
+  onAnalyzeRequested;
 
   /// Callback untuk mengarahkan user ke form Cek Harga manual jika gagal total.
   final void Function(BuildContext context, {String? initialQuery})
-      onFallbackManual;
+  onFallbackManual;
 
   const ScanPriceScreen({
     super.key,
@@ -103,6 +104,14 @@ class _ScanPriceScreenState extends State<ScanPriceScreen> {
       _priceController.text = defaultPrice?.toString() ?? '';
       _state = ScanScreenState.confirm;
     });
+    // Hasil OCR lengkap -> analisis langsung jalan otomatis, tanpa ketuk
+    // "Cek Worth It". Layar konfirmasi hanya jadi tempat koreksi: bila OCR
+    // kurang lengkap, atau bila user kembali dari layar hasil.
+    if (parsed.query.trim().length >= 2 && parsed.defaultPrice != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _handleAnalyze();
+      });
+    }
   }
 
   void _selectChipPrice(int price) {
@@ -114,7 +123,8 @@ class _ScanPriceScreenState extends State<ScanPriceScreen> {
 
   void _onPriceChanged(String value) {
     // Edit manual yang menyimpang dari chip terpilih = chip tidak lagi aktif.
-    if (_selectedChipPrice != null && _parsePrice(value) != _selectedChipPrice) {
+    if (_selectedChipPrice != null &&
+        _parsePrice(value) != _selectedChipPrice) {
       setState(() => _selectedChipPrice = null);
     }
   }
@@ -150,22 +160,27 @@ class _ScanPriceScreenState extends State<ScanPriceScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.scanPriceTitle)),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            MonexSpacing.screenPaddingH,
-            MonexSpacing.screenPaddingV,
-            MonexSpacing.screenPaddingH,
-            24,
-          ),
-          child: switch (_state) {
-            ScanScreenState.guide => _buildGuide(),
-            ScanScreenState.loading => _buildLoading(),
-            ScanScreenState.confirm => _buildConfirm(theme),
-            ScanScreenState.error => _buildError(theme),
-          },
-        ),
-      ),
+      // Loading harus di tengah layar (dua sumbu), bukan ditempel spacer di
+      // atas: lewati SingleChildScrollView untuk state ini, karena di dalam
+      // scroll view konten selalu menempel ke atas.
+      body: _state == ScanScreenState.loading
+          ? Center(child: _buildLoading())
+          : SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  MonexSpacing.screenPaddingH,
+                  MonexSpacing.screenPaddingV,
+                  MonexSpacing.screenPaddingH,
+                  24,
+                ),
+                child: switch (_state) {
+                  ScanScreenState.guide => _buildGuide(),
+                  ScanScreenState.loading => _buildLoading(),
+                  ScanScreenState.confirm => _buildConfirm(theme),
+                  ScanScreenState.error => _buildError(theme),
+                },
+              ),
+            ),
     );
   }
 
@@ -190,10 +205,7 @@ class _ScanPriceScreenState extends State<ScanPriceScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              const Text(
-                AppStrings.scanGuideHint,
-                textAlign: TextAlign.center,
-              ),
+              const Text(AppStrings.scanGuideHint, textAlign: TextAlign.center),
             ],
           ),
         ),
@@ -215,8 +227,8 @@ class _ScanPriceScreenState extends State<ScanPriceScreen> {
 
   Widget _buildLoading() {
     return const Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(height: 64),
         MonexOrbitLoader(size: 56),
         SizedBox(height: 16),
         Text(AppStrings.scanReading),
@@ -231,10 +243,7 @@ class _ScanPriceScreenState extends State<ScanPriceScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            AppStrings.scanConfirmTitle,
-            style: theme.textTheme.titleMedium,
-          ),
+          Text(AppStrings.scanConfirmTitle, style: theme.textTheme.titleMedium),
           const SizedBox(height: 6),
           const Text(AppStrings.scanConfirmHint),
           const SizedBox(height: MonexSpacing.sectionGap),
@@ -244,9 +253,8 @@ class _ScanPriceScreenState extends State<ScanPriceScreen> {
               labelText: AppStrings.queryLabel,
               prefixIcon: Icon(Icons.search),
             ),
-            validator: (v) => (v == null || v.trim().length < 2)
-                ? AppStrings.queryMin
-                : null,
+            validator: (v) =>
+                (v == null || v.trim().length < 2) ? AppStrings.queryMin : null,
           ),
           const SizedBox(height: MonexSpacing.sectionGap),
           TextFormField(
@@ -257,9 +265,8 @@ class _ScanPriceScreenState extends State<ScanPriceScreen> {
               labelText: AppStrings.priceLabel,
               prefixText: 'Rp ',
             ),
-            validator: (v) => _parsePrice(v ?? '') == null
-                ? AppStrings.priceInvalid
-                : null,
+            validator: (v) =>
+                _parsePrice(v ?? '') == null ? AppStrings.priceInvalid : null,
           ),
           if (candidates.length > 1) ...[
             const SizedBox(height: MonexSpacing.sectionGap),
