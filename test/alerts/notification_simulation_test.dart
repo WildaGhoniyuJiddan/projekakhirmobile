@@ -19,6 +19,10 @@ class _FakeGateway implements NotificationPermissionGateway {
 
   bool? enabled;
   bool throwOnCheck;
+
+  /// Bila true, requestPermission() mengubah izin menjadi aktif
+  /// (simulasi pengguna menekan Izinkan di popup sistem).
+  bool grantOnRequest = false;
   int requestCount = 0;
   int settingsCount = 0;
 
@@ -31,6 +35,7 @@ class _FakeGateway implements NotificationPermissionGateway {
   @override
   Future<bool?> requestPermission() async {
     requestCount++;
+    if (grantOnRequest) enabled = true;
     return enabled;
   }
 
@@ -294,7 +299,7 @@ void main() {
     });
 
     testWidgets(
-        'izin ditolak → schedulePriceAlert ditahan, dialog Buka Pengaturan tampil',
+        'izin ditolak → popup izin dimunculkan dulu, tetap ditolak → dialog Buka Pengaturan tampil',
         (tester) async {
       final db = await _seededDb();
       addTearDown(db.close);
@@ -306,6 +311,8 @@ void main() {
       await tester.tap(find.text(AppStrings.simulateNotification));
       await tester.pumpAndSettle();
 
+      // Popup sistem sempat dimunculkan (1x) sebelum dialog fallback.
+      expect(gateway.requestCount, 1);
       expect(notifier.scheduled, isEmpty);
       expect(notifier.sent, isEmpty);
       expect(find.text(AppStrings.simulationBlockedTitle), findsOneWidget);
@@ -315,6 +322,24 @@ void main() {
       await tester.tap(find.text(AppStrings.openSettingsButton));
       await tester.pumpAndSettle();
       expect(gateway.settingsCount, 1);
+      expect(find.text(AppStrings.simulationBlockedTitle), findsNothing);
+    });
+
+    testWidgets(
+        'izin nonaktif → popup izin diizinkan → notifikasi terjadwal, tanpa dialog',
+        (tester) async {
+      final db = await _seededDb();
+      addTearDown(db.close);
+      final gateway = _FakeGateway(enabled: false)..grantOnRequest = true;
+      final svc = await _service(gateway, {});
+      final notifier = _FakeNotifier();
+
+      await pumpScreen(tester, db: db, svc: svc, notifier: notifier);
+      await tester.tap(find.text(AppStrings.simulateNotification));
+      await tester.pumpAndSettle();
+
+      expect(gateway.requestCount, 1);
+      expect(notifier.scheduled, hasLength(1));
       expect(find.text(AppStrings.simulationBlockedTitle), findsNothing);
     });
   });

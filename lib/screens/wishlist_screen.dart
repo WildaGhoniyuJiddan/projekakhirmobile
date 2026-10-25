@@ -124,15 +124,20 @@ class _WishlistAlertsScreenState
   /// tetap muncul saat aplikasi tidak dibuka.
   ///
   /// Pre-flight WAJIB: status izin dicek real-time. Bila nonaktif,
-  /// notifikasi DIBATALKAN dan pengguna diarahkan ke Pengaturan —
-  /// tidak ada kegagalan diam-diam.
+  /// popup izin sistem dimunculkan dulu; bila setelah itu tetap
+  /// ditolak, notifikasi DIBATALKAN dan pengguna diarahkan ke
+  /// Pengaturan — tidak ada kegagalan diam-diam.
   Future<void> _simulateNotification() async {
     setState(() => _simulating = true);
     try {
       final perm =
           await ref.read(notificationPermissionServiceProvider.future);
-      final enabled = await perm.isEnabled();
+      var enabled = await perm.isEnabled();
       if (!mounted) return;
+      if (!enabled) {
+        enabled = await perm.requestPermission();
+        if (!mounted) return;
+      }
       if (!enabled) {
         await _showPermissionBlockedDialog(perm);
         return;

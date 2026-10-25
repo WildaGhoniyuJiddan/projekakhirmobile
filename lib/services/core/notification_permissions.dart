@@ -145,4 +145,22 @@ class NotificationPermissionService {
       return false;
     }
   }
+
+  /// Minta izin lewat popup sistem, untuk aksi eksplisit pengguna
+  /// (mis. tombol Simulasi Notifikasi).
+  ///
+  /// Sengaja TIDAK memakai [ensurePromptedOnce]: ketukan tombol adalah
+  /// niat eksplisit, jadi popup selalu dimunculkan tanpa membaca/menulis
+  /// flag prompt-sekali pasca-login. Mengembalikan status izin SETELAH
+  /// popup ditutup (cek ulang real-time, karena hasil request bisa null
+  /// di sebagian platform; bila izin ditolak permanen, popup tidak
+  /// muncul dan status tetap nonaktif).
+  Future<bool> requestPermission() async {
+    try {
+      await _gateway.requestPermission();
+    } catch (e) {
+      debugPrint('[NotifPermission] minta izin gagal: $e');
+    }
+    return isEnabled();
+  }
 }
