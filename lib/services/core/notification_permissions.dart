@@ -1,5 +1,6 @@
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,6 +28,15 @@ abstract class NotificationPermissionGateway {
 
   /// Membuka halaman Pengaturan Notifikasi OS untuk aplikasi ini.
   Future<void> openNotificationSettings();
+
+  /// Akses alarm tepat waktu (Android 12+): true bila aplikasi boleh
+  /// menjadwalkan alarm exact. Platform lain selalu true.
+  Future<bool> canScheduleExactAlarms();
+
+  /// Membuka layar Pengaturan "Alarm dan pengingat" OS untuk aplikasi
+  /// ini (satu-satunya cara mengaktifkan akses alarm exact: Android
+  /// tidak menyediakan popup izin untuk akses ini).
+  Future<void> openExactAlarmSettings();
 }
 
 class PluginNotificationPermissionGateway
@@ -71,6 +81,29 @@ class PluginNotificationPermissionGateway
   @override
   Future<void> openNotificationSettings() =>
       AppSettings.openAppSettings(type: AppSettingsType.notification);
+
+  /// Channel native ke MainActivity: AlarmManager.canScheduleExactAlarms
+  /// + intent Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM.
+  static const _exactAlarmChannel =
+      MethodChannel('worthbang/exact_alarm');
+
+  @override
+  Future<bool> canScheduleExactAlarms() async {
+    try {
+      final allowed = await _exactAlarmChannel.invokeMethod<bool>(
+        'canScheduleExactAlarms',
+      );
+      return allowed ?? true;
+    } catch (e) {
+      debugPrint('[NotifPermission] cek exact alarm gagal: $e');
+      return true; // Optimistis: bila jadwal gagal, pemanggil menampilkan dialog.
+    }
+  }
+
+  @override
+  Future<void> openExactAlarmSettings() async {
+    await _exactAlarmChannel.invokeMethod<void>('openExactAlarmSettings');
+  }
 }
 
 /// Logika izin notifikasi: prompt SEKALI pasca-login + cek status
@@ -142,6 +175,29 @@ class NotificationPermissionService {
       return true;
     } catch (e) {
       debugPrint('[NotifPermission] buka Pengaturan gagal: $e');
+      return false;
+    }
+  }
+
+  /// Status akses alarm tepat waktu (Android 12+). Error dianggap
+  /// diizinkan agar jadwal tetap dicoba; kegagalan jadwal ditangani
+  /// pemanggil lewat dialog, bukan banner exception mentah.
+  Future<bool> isExactAlarmAllowed() async {
+    try {
+      return await _gateway.canScheduleExactAlarms();
+    } catch (e) {
+      debugPrint('[NotifPermission] cek exact alarm gagal: $e');
+      return true;
+    }
+  }
+
+  /// Buka layar Pengaturan "Alarm dan pengingat" OS. `false` bila gagal.
+  Future<bool> openExactAlarmSettings() async {
+    try {
+      await _gateway.openExactAlarmSettings();
+      return true;
+    } catch (e) {
+      debugPrint('[NotifPermission] buka Pengaturan alarm gagal: $e');
       return false;
     }
   }

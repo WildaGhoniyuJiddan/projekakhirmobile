@@ -177,6 +177,12 @@ abstract final class AppStrings {
   static const laterButton = 'Nanti Saja';
   static const simulationSettingsFailed =
       'Tidak bisa membuka Pengaturan di perangkat ini.';
+  static const exactAlarmTitle = 'Akses Alarm Tepat Waktu Belum Aktif';
+  static const exactAlarmBody =
+      'Android mengharuskan akses "Alarm dan pengingat" diaktifkan di '
+      'Pengaturan agar notifikasi bisa dijadwalkan tepat waktu. Tanpa '
+      'akses ini, tombol Simulasi tidak bisa menjadwalkan notifikasi. '
+      'Buka Pengaturan, aktifkan aksesnya, lalu ketuk Simulasi lagi.';
 
   // Mini Games (hub dua game).
   static const miniGamesTitle = 'Mini Games';

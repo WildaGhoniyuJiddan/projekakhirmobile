@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -26,6 +27,11 @@ class _FakeGateway implements NotificationPermissionGateway {
   int requestCount = 0;
   int settingsCount = 0;
 
+  /// Akses alarm tepat waktu; false mensimulasikan perangkat Dan
+  /// (akses belum diaktifkan di Pengaturan).
+  bool exactAlarmAllowed = true;
+  int exactAlarmSettingsCount = 0;
+
   @override
   Future<bool?> areNotificationsEnabled() async {
     if (throwOnCheck) throw StateError('plugin error');
@@ -43,12 +49,24 @@ class _FakeGateway implements NotificationPermissionGateway {
   Future<void> openNotificationSettings() async {
     settingsCount++;
   }
+
+  @override
+  Future<bool> canScheduleExactAlarms() async => exactAlarmAllowed;
+
+  @override
+  Future<void> openExactAlarmSettings() async {
+    exactAlarmSettingsCount++;
+  }
 }
 
 /// Notifier fake: mencatat payload schedulePriceAlert dan showPriceAlert.
 class _FakeNotifier implements PriceAlertNotifier {
   final List<(int, String, int, int)> scheduled = [];
   final List<(int, String, int, int)> sent = [];
+
+  /// Bila true, schedulePriceAlert melempar seperti perangkat yang
+  /// akses alarm exact-nya dicabut di tengah jalan.
+  bool throwExactAlarm = false;
 
   @override
   Future<void> schedulePriceAlert({
@@ -57,6 +75,9 @@ class _FakeNotifier implements PriceAlertNotifier {
     required int currentPrice,
     required int targetPrice,
   }) async {
+    if (throwExactAlarm) {
+      throw PlatformException(code: 'exact_alarms_not_permitted');
+    }
     scheduled.add((id, query, currentPrice, targetPrice));
   }
 
@@ -169,6 +190,21 @@ void main() {
 
       await svc.ensurePromptedOnce(); // tidak boleh melempar
       expect(gateway.requestCount, 0);
+    });
+  });
+
+  group('NotificationPermissionService.isExactAlarmAllowed', () {
+    test('gateway mengizinkan → true', () async {
+      final gateway = _FakeGateway(enabled: true);
+      final svc = await _service(gateway, {});
+      expect(await svc.isExactAlarmAllowed(), isTrue);
+    });
+
+    test('gateway menolak → false', () async {
+      final gateway = _FakeGateway(enabled: true)
+        ..exactAlarmAllowed = false;
+      final svc = await _service(gateway, {});
+      expect(await svc.isExactAlarmAllowed(), isFalse);
     });
   });
 
@@ -341,6 +377,48 @@ void main() {
       expect(gateway.requestCount, 1);
       expect(notifier.scheduled, hasLength(1));
       expect(find.text(AppStrings.simulationBlockedTitle), findsNothing);
+    });
+
+    testWidgets(
+        'izin notifikasi aktif tapi exact alarm ditolak → tidak terjadwal, dialog alarm tampil',
+        (tester) async {
+      final db = await _seededDb();
+      addTearDown(db.close);
+      final gateway = _FakeGateway(enabled: true)
+        ..exactAlarmAllowed = false;
+      final svc = await _service(gateway, {});
+      final notifier = _FakeNotifier();
+
+      await pumpScreen(tester, db: db, svc: svc, notifier: notifier);
+      await tester.tap(find.text(AppStrings.simulateNotification));
+      await tester.pumpAndSettle();
+
+      expect(notifier.scheduled, isEmpty);
+      expect(find.text(AppStrings.exactAlarmTitle), findsOneWidget);
+      expect(find.text(AppStrings.openSettingsButton), findsOneWidget);
+
+      // Aksi Buka Pengaturan benar-benar memanggil gateway alarm.
+      await tester.tap(find.text(AppStrings.openSettingsButton));
+      await tester.pumpAndSettle();
+      expect(gateway.exactAlarmSettingsCount, 1);
+      expect(find.text(AppStrings.exactAlarmTitle), findsNothing);
+    });
+
+    testWidgets(
+        'jadwal melempar exact_alarms_not_permitted → dialog alarm tampil, bukan banner exception',
+        (tester) async {
+      final db = await _seededDb();
+      addTearDown(db.close);
+      final gateway = _FakeGateway(enabled: true);
+      final svc = await _service(gateway, {});
+      final notifier = _FakeNotifier()..throwExactAlarm = true;
+
+      await pumpScreen(tester, db: db, svc: svc, notifier: notifier);
+      await tester.tap(find.text(AppStrings.simulateNotification));
+      await tester.pumpAndSettle();
+
+      expect(notifier.scheduled, isEmpty);
+      expect(find.text(AppStrings.exactAlarmTitle), findsOneWidget);
     });
   });
 }

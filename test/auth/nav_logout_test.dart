@@ -38,6 +38,12 @@ class _FakeGateway implements NotificationPermissionGateway {
 
   @override
   Future<void> openNotificationSettings() async {}
+
+  @override
+  Future<bool> canScheduleExactAlarms() async => true;
+
+  @override
+  Future<void> openExactAlarmSettings() async {}
 }
 
 /// Router mini yang memasang BottomNavShell asli (4 branch kosong).

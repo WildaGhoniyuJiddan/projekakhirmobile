@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:worthbang/core/theme/monex_theme.dart';
@@ -142,6 +143,15 @@ class _WishlistAlertsScreenState
         await _showPermissionBlockedDialog(perm);
         return;
       }
+      // Pre-flight kedua: alarm tepat waktu (Android 12+) TIDAK punya
+      // popup izin seperti notifikasi — aksesnya hanya bisa diaktifkan
+      // lewat Pengaturan, jadi tanpa cek ini jadwal exact melempar
+      // PlatformException exact_alarms_not_permitted.
+      if (!await perm.isExactAlarmAllowed()) {
+        if (!mounted) return;
+        await _showExactAlarmDialog(perm);
+        return;
+      }
       final payload = buildSimulationPayload(_alerts);
       await ref.read(priceAlertNotifierProvider).schedulePriceAlert(
             id: payload.id,
@@ -152,6 +162,17 @@ class _WishlistAlertsScreenState
       if (!mounted) return;
       showMonexToast(context, AppStrings.simulationScheduled,
           isSuccess: true);
+    } on PlatformException catch (e) {
+      // Balapan antara cek dan jadwal (akses dicabut di tengah jalan)
+      // atau perangkat yang tidak menjawab cek: ganti banner exception
+      // mentah dengan dialog yang mengarah ke Pengaturan.
+      if (e.code == 'exact_alarms_not_permitted' && mounted) {
+        final p =
+            await ref.read(notificationPermissionServiceProvider.future);
+        if (mounted) await _showExactAlarmDialog(p);
+      } else if (mounted) {
+        showMonexToast(context, e.toString(), isError: true);
+      }
     } catch (e) {
       if (mounted) {
         showMonexToast(context, e.toString(), isError: true);
@@ -182,6 +203,33 @@ class _WishlistAlertsScreenState
     );
     if (open != true) return;
     final opened = await perm.openNotificationSettings();
+    if (!opened && mounted) {
+      showMonexToast(context, AppStrings.simulationSettingsFailed,
+          isError: true);
+    }
+  }
+
+  Future<void> _showExactAlarmDialog(
+      NotificationPermissionService perm) async {
+    final open = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text(AppStrings.exactAlarmTitle),
+        content: const Text(AppStrings.exactAlarmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text(AppStrings.laterButton),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(AppStrings.openSettingsButton),
+          ),
+        ],
+      ),
+    );
+    if (open != true) return;
+    final opened = await perm.openExactAlarmSettings();
     if (!opened && mounted) {
       showMonexToast(context, AppStrings.simulationSettingsFailed,
           isError: true);
