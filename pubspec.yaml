@@ -93,6 +93,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/icon.png
+    - assets/images/
     - assets/data/retail_catalog.json
     - assets/data/stores_jakarta.csv
     - assets/data/stores_yogyakarta.csv
