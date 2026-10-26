@@ -235,8 +235,8 @@ class HomeScreen extends StatelessWidget {
                   crossAxisSpacing: MonexSpacing.gridGap,
                   mainAxisSpacing: MonexSpacing.gridGap,
                   // Rasio adjusted supaya judul 2 baris + subtitle 2 baris
-                  // tidak overflow di layar sempit (320dp).
-                  childAspectRatio: columns == 2 ? 1.02 : 0.95,
+                  // tidak overflow di layar sempit (320dp) dengan efek kartu bertumpuk.
+                  childAspectRatio: columns == 2 ? 0.98 : 0.92,
                 ),
                 itemBuilder: (context, index) {
                   final menu = _menus[index];
@@ -280,42 +280,93 @@ class _HomeMenuCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    return MonexSurfaceCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(MonexSpacing.cardPaddingCompact),
-      radius: MonexSpacing.radiusMd,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: MonexColors.limeMuted,
-              borderRadius: BorderRadius.circular(MonexSpacing.radiusSm),
+    // Shade warna layer belakang kartu bertumpuk (stacked card effect)
+    final backCardColor = isDark
+        ? MonexColors.surfaceElevated
+        : const Color(0xFFE2E8F0);
+    final backBorderColor = isDark
+        ? MonexColors.borderLight
+        : theme.colorScheme.outlineVariant;
+
+    return Stack(
+      children: [
+        // Kartu layer belakang (shade berbeda untuk ilusi kartu ditumpuk)
+        Positioned(
+          top: 4,
+          left: 4,
+          right: 0,
+          bottom: 0,
+          child: GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: backCardColor,
+                borderRadius: BorderRadius.circular(MonexSpacing.radiusMd),
+                border: Border.all(
+                  color: backBorderColor,
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(
+                      alpha: isDark ? 0.30 : 0.08,
+                    ),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
             ),
-            child: Icon(item.icon, size: 20, color: MonexColors.lime),
           ),
-          const SizedBox(height: 10),
-          Text(
-            item.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleSmall,
-          ),
-          const SizedBox(height: 4),
-          Expanded(
-            child: Text(
-              item.subtitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall,
+        ),
+        // Kartu layer utama di atas tumpukan
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 4,
+          bottom: 4,
+          child: MonexSurfaceCard(
+            onTap: onTap,
+            padding: const EdgeInsets.all(MonexSpacing.cardPaddingCompact),
+            radius: MonexSpacing.radiusMd,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: MonexColors.limeMuted,
+                    borderRadius:
+                        BorderRadius.circular(MonexSpacing.radiusSm),
+                  ),
+                  child: Icon(item.icon, size: 20, color: MonexColors.lime),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                Expanded(
+                  child: Text(
+                    item.subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
