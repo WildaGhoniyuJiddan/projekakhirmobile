@@ -76,49 +76,192 @@ const BANG_WORTH_SYSTEM =
   "dengan laptop atau PC jadi. Produk jadi hanya boleh disebut maksimal " +
   "satu baris sebagai alternatif tambahan, tidak pernah sebagai jawaban utama.";
 
-const SCOPE_KEYWORDS = new Set([
-  // komponen
-  "cpu", "prosesor", "processor", "gpu", "vga", "grafis", "igpu",
-  "ram", "memori", "memory", "ssd", "hdd", "harddisk", "hardisk",
-  "nvme", "sata", "motherboard", "mobo", "mainboard",
-  "psu", "power supply", "casing", "cooler", "heatsink", "fan", "aio",
-  "monitor", "layar", "keyboard", "mouse", "mousepad", "headset", "speaker",
-  "laptop", "notebook", "macbook", "thinkpad",
-  // aktivitas & kebutuhan
-  "rakit", "rakitan", "merakit", "build", "pc", "komputer", "kompie",
-  "gaming", "game", "editing", "render", "rendering", "kantor", "kuliah",
-  "streaming", "kerja",
-  // harga & budget
-  "harga", "mahal", "murah", "worth", "worth it", "kemahalan",
-  "budget", "dana", "duit", "juta", "ribu", "ratus", "miliar",
-  "rp", "rupiah", "idr", "usd", "dolar", "sgd", "myr", "ringgit",
-  "diskon", "promo", "garansi",
-  // kondisi barang
-  "baru", "bekas", "second", "seken",
-  // perbandingan & spek
-  "banding", "perbandingan", "vs", "spek", "spesifikasi", "benchmark",
-  "fps", "skor", "performa", "kencang", "lemot",
-  // fitur aplikasi
-  "tren", "trend", "naik", "turun", "stabil", "grafik",
-  "tebak", "kuis", "alert", "notifikasi", "peringatan",
-  "toko", "store", "beli", "dimana", "terdekat",
-  "konversi", "kurs", "fitur", "aplikasi",
-  "rekomendasi", "saran", "pilih", "mending",
-]);
+// === GATE V2 (begin) ===
+// Gerbang topik lokal (tanpa LLM, hemat kuota): pesan user hanya
+// diteruskan ke katalog/Gemini kalau lolos salah satu lapis kuat
+// (Layer 1-3) atau sebagai follow-up berkonteks (Layer 4).
+// Kata sifat dan kata uang TIDAK PERNAH meloloskan pesan sendirian:
+// "mending makan seblak atau bakso?" dan "sepatu murah" harus tetap
+// ditolak di sini, bukan dibayar token untuk ditolak Gemini.
+// (Menggantikan SCOPE_KEYWORDS tunggal per 2026-10-26: daftar lama
+// tidak mengenal nama model telanjang seperti "rtx 3050".)
+
+// "harganya" -> "harga": imbuhan milik -nya/-ku/-mu dinormalisasi dulu.
+const POSSESSIVE_RE = /(nya|ku|mu)\b/gi;
+
+function normalizeGateText(message: string): string {
+  return message.replace(POSSESSIVE_RE, "");
+}
+
+// Layer 2: pola penamaan hardware (SKU telanjang, tanpa peduli ada
+// kata "bagus"/"mending"). Dua pola diperketat per 2026-10-26:
+// - watt: "w" tunggal artinya "gue" di chat Indonesia ("jam 8 w mau
+//   cabut"), jadi "w" menempel wajib 3-4 digit (650w), sedangkan
+//   bentuk ber-spasi wajib tulis lengkap "watt" (550 watt).
+// - chipset: kode motherboard Intel/AMD selalu berakhir 0 atau 5
+//   (B550, H610, Z790), jadi "kamar b201" tidak lagi cocok.
+const HARDWARE_SKU_PATTERNS: RegExp[] = [
+  // Lini GPU: RTX, GTX, RX, Arc, Radeon, GeForce, Quadro.
+  /\b(rtx|gtx|rx|arc|radeon|geforce|quadro)\s*\d{3,4}(\s*(ti|super|xt|xtx|gre|m))?\b/i,
+  // Lini CPU AMD: Ryzen, Threadripper, Athlon, Epyc.
+  /\b(ryzen|threadripper|athlon|epyc)\s*(\d\s*)?\d{4}[a-z0-9]*\b/i,
+  // Lini CPU Intel: Core i3/i5/i7/i9 dan Core Ultra.
+  /\b(core\s*)?i[3579][-\s]?\d{4,5}[a-z]{0,2}\b/i,
+  /\b(core\s*ultra)\s*[579][-\s]?\d{3}[a-z]?\b/i,
+  // Brand telanjang (menangkap "prefer amd").
+  /\b(intel|amd|nvidia)\b/i,
+  // Kode SKU telanjang tanpa brand ("5700x3d", "1660 super").
+  /\b\d{4}\s*(x3d|xt|xtx|ti|super|gre)\b/i,
+  /\b(1[0-4]\d{3}|[3579]\d{3})[fgkx]{1,2}\b/i,
+  // Chipset motherboard dan socket (diperketat: akhir 0/5).
+  /\b[abxhz][3-8]\d[05][emi]?\b/i,
+  /\b(am[45]|lga\s*\d{4})\b/i,
+  // Standar memori/storage.
+  /\b(ddr[345x]|gddr[56x]+|nvme|pcie|sata|m\.2)\b/i,
+  // Satuan (watt diperketat, lihat komentar di atas).
+  /\b\d{1,4}\s*(gb|tb|mhz|mt\/s|hz|fps)\b/i,
+  /\b\d{2,4}\s*watt\b/i,
+  /\b\d{3,4}w\b/i,
+];
+
+// Hitung span SKU yang tidak saling tumpang tindih: "gtx 1660 super"
+// dihitung 1 span (pola GPU dan pola sufiks menunjuk teks yang sama),
+// sedangkan "rtx 3050 gtx 1660 super" dihitung 2 span.
+function countSkuSpans(message: string): number {
+  const spans: Array<[number, number]> = [];
+  for (const p of HARDWARE_SKU_PATTERNS) {
+    const global = new RegExp(
+      p.source,
+      p.flags.includes("g") ? p.flags : p.flags + "g",
+    );
+    for (const m of message.matchAll(global)) {
+      if (m.index !== undefined) spans.push([m.index, m.index + m[0].length]);
+    }
+  }
+  spans.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  let count = 0;
+  let lastEnd = -1;
+  for (const [start, end] of spans) {
+    if (start >= lastEnd) {
+      count++;
+      lastEnd = end;
+    }
+  }
+  return count;
+}
+
+function matchesSku(message: string): boolean {
+  return countSkuSpans(message) >= 1;
+}
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Satu regex word-boundary untuk semua keyword: "kerja" tidak cocok
+// Layer 3: kata benda murni ekosistem PC (komponen, workload, fitur
+// aplikasi). Hasil merge daftar lama + tambahan V2; kata sifat dan
+// kata uang (mending, bagus, lebih, murah, mahal, worth, harga,
+// budget, baru, bekas, diskon, ...) SENGAJA tidak ada di sini, mereka
+// hanya sinyal Layer 4. Satu regex word-boundary: "kerja" tidak cocok
 // dengan "kerjakan", dan "ram" tidak cocok dengan "memprogram".
-const SCOPE_RE = new RegExp(
+const PC_DOMAIN_KEYWORDS = new Set([
+  // Komponen inti.
+  "cpu", "prosesor", "processor", "gpu", "vga", "grafis", "igpu",
+  "ram", "memori", "memory", "ssd", "hdd", "harddisk", "hardisk",
+  "nvme", "sata", "motherboard", "mobo", "mainboard",
+  "psu", "power supply", "casing", "case", "cooler", "heatsink", "hsf",
+  "fan", "aio", "watercooling", "kipas", "thermal paste",
+  "monitor", "layar", "panel", "ips", "oled", "va", "resolusi",
+  "1080p", "1440p", "2k", "4k",
+  "keyboard", "mouse", "mousepad", "headset", "speaker",
+  "laptop", "notebook", "macbook", "thinkpad",
+  "pc", "komputer", "kompie", "storage", "penyimpanan",
+  // Aktivitas dan beban kerja.
+  "rakit", "rakitan", "merakit", "build",
+  "gaming", "game", "editing", "render", "rendering", "kantor", "kuliah",
+  "streaming", "stream", "kerja",
+  "upgrade", "bottleneck", "overclock", "undervolt", "bios", "xmp",
+  "expo", "vram", "dual channel",
+  "blender", "premiere", "after effects", "coding", "emulator",
+  // Fitur aplikasi (regresi dilarang: kata-kata ini sudah lolos di
+  // gerbang lama dan harus tetap lolos).
+  "tren", "trend", "naik", "turun", "stabil", "grafik",
+  "tebak", "kuis", "alert", "notifikasi", "peringatan",
+  "toko", "store", "beli", "dimana", "terdekat",
+  "konversi", "kurs", "fitur", "aplikasi",
+  "promo", "garansi", "benchmark", "spek", "spesifikasi",
+  "fps", "skor", "performa", "kencang", "lemot",
+]);
+
+const PC_DOMAIN_RE = new RegExp(
   "\\b(" +
-    [...SCOPE_KEYWORDS].map(escapeRegExp).sort((a, b) => b.length - a.length)
+    [...PC_DOMAIN_KEYWORDS].map(escapeRegExp).sort((a, b) => b.length - a.length)
       .join("|") +
     ")\\b",
   "i",
 );
+
+// Layer 1-3 digabung: sinyal PC kuat, tanpa peduli konteks riwayat.
+// hasCatalogMatch dihitung handler dari priceLookupReply (lihat di
+// bawah); di sini hanya dipakai sebagai boolean.
+function strongLayerReason(text: string): "HARDWARE_SKU_PATTERN" | "PC_DOMAIN_KEYWORD" | null {
+  if (matchesSku(text)) return "HARDWARE_SKU_PATTERN";
+  if (PC_DOMAIN_RE.test(text)) return "PC_DOMAIN_KEYWORD";
+  return null;
+}
+
+function passesStrongLayers(message: string, hasCatalogMatch: boolean): boolean {
+  if (hasCatalogMatch) return true;
+  return strongLayerReason(normalizeGateText(message)) !== null;
+}
+
+// Layer 4: sinyal intent/komparasi. Hanya berarti bila
+// hasPreviousContext true (riwayat mengandung pesan PC); sendirian
+// tidak pernah meloloskan apa pun.
+const INTENT_RE =
+  /\b(bagus|lebih|terbaik|mending|banding\w*|vs|versus|atau|worth|worthed|layak|pilih\w*|rekomendasi\w*|saran\w*|harga|budget|bajet|dana|duit|juta|jt|ribu|rb|ratus|miliar|rp|rupiah|idr|usd|dolar|sgd|myr|ringgit|murah|mahal|kemahalan|baru|bekas|second|seken|diskon|kuat|angkat|lancar|panas|suhu|irit|boros|awet|cocok|kenapa|gimana|apakah|apa)\b/i;
+
+// Pesan 1 kata pendek / noise ("woi", "tes") ditolak tanpa cek lain.
+// Cabang sapaan (GREETING_REPLY) jalan SEBELUM fungsi ini di handler,
+// jadi "halo"/"hai" tidak pernah sampai ke sini sebagai noise.
+const NOISE_RE =
+  /^(woi|woy|p|tes|test|halo|hai|hi|ping|bro|kak|bang)$/i;
+
+type GateReason =
+  | "CATALOG_MATCH"
+  | "HARDWARE_SKU_PATTERN"
+  | "PC_DOMAIN_KEYWORD"
+  | "CONTEXTUAL_FOLLOW_UP"
+  | "REJECTED_SHORT_NOISE"
+  | "REJECTED_OUT_OF_SCOPE";
+
+function gateReason(
+  message: string,
+  hasCatalogMatch: boolean,
+  hasPreviousContext: boolean,
+): GateReason {
+  const text = normalizeGateText(message);
+  if (hasCatalogMatch) return "CATALOG_MATCH";
+  const strong = strongLayerReason(text);
+  if (strong !== null) return strong;
+  const trimmed = text.trim();
+  if (trimmed.length < 3 || NOISE_RE.test(trimmed)) {
+    return "REJECTED_SHORT_NOISE";
+  }
+  if (hasPreviousContext && INTENT_RE.test(text)) {
+    return "CONTEXTUAL_FOLLOW_UP";
+  }
+  return "REJECTED_OUT_OF_SCOPE";
+}
+
+function evaluateGate(
+  message: string,
+  hasCatalogMatch: boolean,
+  hasPreviousContext: boolean,
+): boolean {
+  return !gateReason(message, hasCatalogMatch, hasPreviousContext)
+    .startsWith("REJECTED");
+}
 
 const GREETING_RE =
   /\b(halo|hallo|hai|hi|hello|hei|pagi|siang|sore|malam|bang|bro|kak|permisi|assalamualaikum|tes|test|p)\b/i;
@@ -147,13 +290,21 @@ const STATEMENT_REPLY =
 
 // Sinyal pertanyaan/permintaan Bahasa Indonesia. Kata kunci topik saja
 // (mis. "pc gaming") tidak cukup — harus ada salah satu sinyal ini,
-// tanda "?", atau kata tanya.
+// tanda "?", atau kata tanya. Per 2026-10-26: operator komparasi
+// ("vs", "versus", "atau") ikut jadi sinyal, dan pesan dengan >= 2
+// span SKU ("5600g 12400f") otomatis dianggap pertanyaan. Dalam
+// konteks asisten PC, itu 100% minta perbandingan, bukan info.
+// Aman: cek ini jalan SETELAH gerbang topik, jadi pelebaran di sini
+// tidak bisa membocorkan pesan non-PC.
 const REQUEST_RE =
-  /\?|\b(apa|apakah|berapa|mana|dimana|kapan|kenapa|mengapa|bagaimana|gimana|bisakah|bolehkah|adakah|siapa|rekomendasi\w*|saran\w*|tolong|carikan|pilihkan|buatkan|rakit\w*|mending|worth|bagus|pilih\w*|banding\w*|cek|lihat|kasih|minta|cari|pengen|ingin|butuh|perlu)\b/i;
+  /\?|\b(apa|apakah|berapa|mana|dimana|kapan|kenapa|mengapa|bagaimana|gimana|bisakah|bolehkah|adakah|siapa|rekomendasi\w*|saran\w*|tolong|carikan|pilihkan|buatkan|rakit\w*|mending|worth|bagus|pilih\w*|banding\w*|vs|versus|atau|cek|lihat|kasih|minta|cari|pengen|ingin|butuh|perlu)\b/i;
 
 function isQuestionOrRequest(message: string): boolean {
-  return REQUEST_RE.test(message);
+  if (REQUEST_RE.test(message)) return true;
+  return countSkuSpans(normalizeGateText(message)) >= 2;
 }
+
+// === GATE V2 (end) ===
 
 // ---------------------------------------------------------------------------
 // Klarifikasi preferensi rakitan (permintaan Dan 2026-10-21): sebelum
@@ -451,15 +602,6 @@ function stripContextTags(name: string): string {
     .replace(/\s*\[(platform|skor konsensus|SODIMM)[^\]]*\]/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
-}
-
-// "harganya" -> "harga": imbuhan milik -nya/-ku/-mu dinormalisasi dulu.
-const POSSESSIVE_RE = /(nya|ku|mu)\b/gi;
-
-function isInScope(message: string): boolean {
-  if (GREETING_RE.test(message)) return true;
-  const normalized = message.replace(POSSESSIVE_RE, "");
-  return SCOPE_RE.test(normalized);
 }
 
 // ---------------------------------------------------------------------------
@@ -1301,18 +1443,21 @@ serve(async (req: Request) => {
   // 2. Di luar topik -> tolak sopan.
   // 3. Topik benar tapi bukan pertanyaan/permintaan -> arahan bertanya.
   // Jawaban atas pertanyaan klarifikasi ("amd, gaming") melewati
-  // gerbang ini — teksnya memang bukan pertanyaan dan kata kuncinya
-  // di luar daftar topik.
+  // gerbang ini karena teksnya memang bukan pertanyaan.
   const isClarifyAnswer = askedClarification && brandPref !== null;
   if (!isClarifyAnswer) {
-    const inScope = isInScope(message);
-    // Sapaan murni: pola sapaan cocok DAN tidak ada kata kunci topik.
-    // (isInScope menganggap sapaan in-scope, jadi cek topiknya terpisah.)
-    const hasTopic = SCOPE_RE.test(message.replace(POSSESSIVE_RE, ""));
-    if (GREETING_RE.test(message) && !hasTopic) {
+    // Sapaan murni: pola sapaan cocok DAN tidak ada sinyal PC kuat
+    // (Layer 1-3). Jalan paling awal, sebelum pemindaian katalog.
+    if (GREETING_RE.test(message) && !passesStrongLayers(message, false)) {
       return jsonResponse({ reply: GREETING_REPLY });
     }
-    if (!inScope) {
+    // Layer 1 memakai priceLookupReply yang sama dengan jalur cepat di
+    // bawah (tetap di posisinya semula, dihitung ulang di sana).
+    const hasCatalogMatch = priceLookupReply(message) !== null;
+    const hasPreviousContext = userHistory.some(
+      (t) => priceLookupReply(t) !== null || passesStrongLayers(t, false),
+    );
+    if (!evaluateGate(message, hasCatalogMatch, hasPreviousContext)) {
       return jsonResponse({ reply: REFUSAL_REPLY });
     }
     if (!isQuestionOrRequest(message)) {
