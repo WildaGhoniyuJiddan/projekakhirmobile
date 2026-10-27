@@ -393,7 +393,15 @@ function priceLookupReply(message: string): string | null {
     .filter((t) => t.length >= 2 && !STOP.has(t));
   if (!tokens.some((t) => /\d/.test(t))) return null; // wajib ada token model
   const cat = catalog as unknown as Record<string, unknown>;
-  type Hit = { name: string; price: number; overlap: number; retail: boolean };
+  type Hit = {
+    name: string;
+    price: number;
+    overlap: number;
+    retail: boolean;
+    fallback: boolean;
+    laptop: boolean;
+    reference?: { group: string; median: number };
+  };
   const hits: Hit[] = [];
   for (const key of ["gpu", "cpu", "motherboard", "ram", "storage", "laptop", "psu", "case"]) {
     const items = cat[key];
@@ -409,24 +417,55 @@ function priceLookupReply(message: string): string | null {
       // Minimal 2 token cocok DAN minimal 1 token berdigit (seri model).
       const digitHit = tokens.some((t) => /\d/.test(t) && mtok.has(t));
       if (overlap >= 2 && digitHit) {
-        hits.push({ name: model, price, overlap, retail: it["src"] === "retail" });
+        const ref = it["reference"] as { group: string; median: number } | undefined;
+        hits.push({
+          name: model,
+          price,
+          overlap,
+          retail: it["src"] === "retail",
+          fallback: it["tier"] === "fallback",
+          laptop: key === "laptop" || key === "pc",
+          reference: ref,
+        });
       }
     }
   }
   if (hits.length === 0) return null;
   const maxOv = Math.max(...hits.map((h) => h.overlap));
-  const top = hits
-    .filter((h) => h.overlap === maxOv)
+  const maxHits = hits.filter((h) => h.overlap === maxOv);
+  // Komponen dulu sebelum laptop/PC: kueri "RTX 3050 8GB" cocok juga ke
+  // laptop yang mengandung GPU itu, tapi jawaban yang diminta adalah
+  // GPU-nya. Laptop hanya dipakai bila tidak ada komponen yang cocok
+  // (mis. kueri menyebut model laptop spesifik sehingga overlap-nya
+  // memang lebih tinggi dan sudah tersaring oleh maxOv di atas).
+  const compHits = maxHits.filter((h) => !h.laptop);
+  const top = (compHits.length > 0 ? compHits : maxHits)
     // Sumber retail (file Dan) dulu, lalu varian [Box] sebelum [Tray],
     // lalu harga naik.
     .sort((a, b) =>
       (Number(b.retail) - Number(a.retail)) ||
       (Number(/\[tray\]/i.test(a.name)) - Number(/\[tray\]/i.test(b.name))) ||
       (a.price - b.price)
-    )
-    .slice(0, 3);
-  const lines = top.map((h) => `• ${h.name} — Rp${formatRupiah(h.price)}`);
-  return lines.join("\n") +
+    );
+  // Guard Tahap 3 (baseline komponen_pc.csv): lapis utama dulu; lapis
+  // cadangan hanya bila tidak ada satu pun baris utama yang cocok, dan
+  // wajib disertai catatan "di atas batas wajar pasar" + acuan seri
+  // di atasnya bila ada (putusan Dan 2026-10-27).
+  const primary = top.filter((h) => !h.fallback);
+  const shown = (primary.length > 0 ? primary : top).slice(0, 3);
+  const fallbackUsed = primary.length === 0;
+  const lines = shown.map((h) => `• ${h.name} — Rp${formatRupiah(h.price)}`);
+  let out = lines.join("\n");
+  if (fallbackUsed) {
+    out += "\nCatatan: harga di atas batas wajar pasar.";
+    const ref = shown[0]?.reference;
+    if (ref) {
+      out += ` Alternatif seri di atasnya: ${ref.group} (median Rp${
+        formatRupiah(ref.median)
+      }).`;
+    }
+  }
+  return out +
     "\nMau kubandingkan dengan seri lain atau dicarikan yang paling worth it?";
 }
 
@@ -788,6 +827,7 @@ function catalogContext(
     price: number;
     model: string;
     retail: boolean;
+    group?: string;
   };
   const byCategory = new Map<string, Cand[]>();
   for (const key of KEYS) {
@@ -805,6 +845,17 @@ function catalogContext(
       // Guard polusi (lihat LAPTOP_LINE_COMPONENT_RE): item yang
       // gugur di sini juga tidak masuk peta grounding `allowed`.
       if (isLaptopLineInComponent(key, model)) continue;
+      // Guard Tahap 3 (baseline komponen_pc.csv, putusan Dan 2026-10-27):
+      // lapis cadangan tidak dipakai menyusun rekomendasi/rakitan, dan
+      // komponen enterprise disembunyikan dari mode rakitan kecuali
+      // user menyebut server/workstation (atau nama seri enterprise)
+      // secara eksplisit. Item yang gugur di sini juga tidak masuk
+      // peta grounding `allowed`.
+      if (it["tier"] === "fallback") continue;
+      if (
+        componentsOnly && it["segment"] === "enterprise" &&
+        !/(server|workstation|epyc|xeon|threadripper|quadro|rtx pro|ai pro|arc pro)/i.test(message)
+      ) continue;
       // --- Saringan forensik harga & spek rakitan (audit
       // 2026-10-21). Item yang gugur di blok ini tidak masuk konteks
       // maupun peta grounding `allowed`.
@@ -898,7 +949,67 @@ function catalogContext(
         price,
         model,
         retail: it["src"] === "retail",
+        group: it["group"] as string | undefined,
       });
+    }
+    // Rescue lapis cadangan untuk model yang disebut spesifik oleh user
+    // (komparasi "lebih bagus X atau Y?" — putusan Dan 2026-10-27).
+    // Aturan 2-lapis seperti priceLookupReply: item fallback hanya
+    // diselamatkan bila (a) cocok spesifik ke pesan (overlap >= 2 +
+    // token berdigit), dan (b) tidak ada item primary se-grup yang sama
+    // di kategori ini (grup dibawa field "group" dari builder).
+    // Item yang diselamatkan masuk scored + allowed (agar grounding
+    // tidak membuangnya sebagai karangan) dengan tag batas wajar.
+    // Mode rakit umum tidak memicu rescue: pesannya tidak mengandung
+    // token model spesifik sehingga overlap >= 2 tidak tercapai.
+    {
+      const primaryGroups = new Set<string>();
+      for (const c of scored) if (c.group) primaryGroups.add(c.group);
+      for (const it of items) {
+        if (it["tier"] !== "fallback") continue;
+        const model = String(it["model"] ?? "");
+        const price = it["price"];
+        if (
+          !model || typeof price !== "number" || !Number.isInteger(price) ||
+          price <= 0
+        ) continue;
+        if (isLaptopLineInComponent(key, model)) continue;
+        if (
+          componentsOnly && it["segment"] === "enterprise" &&
+          !/(server|workstation|epyc|xeon|threadripper|quadro|rtx pro|ai pro|arc pro)/i.test(message)
+        ) continue;
+        if (/\(generik\)/i.test(model)) continue;
+        if (isInvalidScrapePrice(key, model, price, it["src"])) continue;
+        const normName = sq(model);
+        if (!allowed.has(normName)) allowed.set(normName, price);
+        const dedupeKey = model.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        if (key === "ram" && isSodimm(model)) continue;
+        const mtok = new Set(model.toLowerCase().match(/[a-z0-9]+/g) ?? []);
+        let overlap = 0;
+        for (const t of tokens) if (mtok.has(t)) overlap++;
+        const digitHit = [...tokens].some(
+          (t) => /\d/.test(t) && mtok.has(t),
+        );
+        if (overlap < 2 || !digitHit) continue;
+        const group = it["group"] as string | undefined;
+        if (group && primaryGroups.has(group)) continue;
+        const ref = it["reference"] as
+          | { group: string; median: number }
+          | undefined;
+        const warn = ref
+          ? ` (Harga di atas batas wajar pasar; acuan wajar: ${ref.group} sekitar Rp${formatRupiah(ref.median)})`
+          : ` (Harga di atas batas wajar pasar)`;
+        scored.push({
+          overlap,
+          line: `${model}${warn}`,
+          price,
+          model,
+          retail: it["src"] === "retail",
+          group,
+        });
+      }
     }
     scored.sort((a, b) =>
       (b.overlap - a.overlap) ||
@@ -1031,8 +1142,9 @@ function catalogContext(
     const scored = byCategory.get(key);
     if (!scored || scored.length === 0) continue;
     {
-    // Pilihan per kategori: ambil dulu yang disebut user (overlap
-    // tertinggi, maks 2), lalu isi sisa slot dengan strategi per
+    // Pilihan per kategori: ambil dulu yang disebut user (maks 2 baris
+    // per grup yang disebut; bila tak ada grup bernama, 2 baris
+    // overlap tertinggi), lalu isi sisa slot dengan strategi per
     // peran komponen. Komponen pendukung (RAM/motherboard/storage/
     // PSU/casing) spek minimalnya sudah ditegakkan saringan kandidat, jadi di
     // sini dipilih yang paling VALUE (dual channel / NVMe dulu, lalu
@@ -1051,7 +1163,49 @@ function catalogContext(
       pickedLines.add(p.line);
       picked.push(p);
     };
-    for (const p of scored.filter((s) => s.overlap > 0).slice(0, 2)) take(p);
+    // Slot nama dulu: ambil yang disebut user, SATU-DUA BARIS PER GRUP
+    // yang disebut (putusan Dan 2026-10-27). Aturan lama (2 baris
+    // teratas se-overlap) gagal untuk komparasi: token "4060" juga
+    // cocok ke baris "4060 Ti" sehingga 2 slot nama selalu jatuh ke
+    // varian termahal, bukan ke model yang dibandingkan. Grup disebut
+    // = semua token non-kapasitasnya ada di pesan; token pesan di sini
+    // tanpa filter panjang agar "ti"/"5"/"i5" terlihat (filter len>2 di
+    // loop kandidat membuat "ti" tak terlihat). Kapasitas dibatasi
+    // 1-2 digit + satuan (8GB/12G): sufiks model seperti 5600G/8600G
+    // BUKAN kapasitas dan harus tetap membedakan grup.
+    // Bila tidak ada grup bernama (rakit umum), perilaku lama dipakai.
+    const msgTokensFull = new Set(
+      message.toLowerCase().match(/[a-z0-9]+/g) ?? [],
+    );
+    const isCapacityToken = (t: string) => /^\d{1,2}(gb|mb|tb|g)$/.test(t);
+    const namedGroups: string[] = [];
+    {
+      const seenGroups = new Set<string>();
+      for (const s of scored) {
+        if (!s.group || seenGroups.has(s.group)) continue;
+        seenGroups.add(s.group);
+        const gtoks = s.group.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+        if (
+          gtoks.filter((t) => !isCapacityToken(t)).every((t) =>
+            msgTokensFull.has(t)
+          )
+        ) namedGroups.push(s.group);
+      }
+    }
+    if (namedGroups.length > 0) {
+      // Round-robin: satu baris per grup dulu agar semua model yang
+      // disebut user kebagian slot, baru baris kedua tiap grup.
+      // Tanpa ini, 2 baris grup termahal menghabiskan 5 slot dan grup
+      // primary (mis. 3060 12GB) tidak tampil sama sekali.
+      for (let round = 0; round < 2; round++) {
+        for (const g of namedGroups) {
+          const rows = scored.filter((s) => s.overlap > 0 && s.group === g);
+          if (rows[round]) take(rows[round]);
+        }
+      }
+    } else {
+      for (const p of scored.filter((s) => s.overlap > 0).slice(0, 2)) take(p);
+    }
     if (key === "ram" || key === "motherboard" || key === "storage" ||
       key === "psu" || key === "case") {
       const valueSorted = [...scored].sort((a, b) => {

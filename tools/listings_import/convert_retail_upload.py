@@ -20,9 +20,16 @@ Input : ~/workspace/user/files/retail_catalog.json
 Output : assets/data/retail_catalog.json (diganti, hasil merge)
          supabase/functions/bang-worth/retail_catalog.json (salinan)
          supabase/functions/bang-worth/consensus_scores.json (diperkaya)
+
+PERINGATAN (2026-10-27): JANGAN jalankan script ini setelah merge
+Tahap 3 — ia menimpa retail_catalog.json hasil build_merged_catalog.py
+(baseline komponen_pc.csv + tier/segment). Guard di main() menolak
+berjalan bila target sudah berformat merged; rebuild katalog wajib
+lewat ~/workspace/bangworth_catalog/build_merged_catalog.py.
 """
 import json
 import re
+import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -49,6 +56,27 @@ def is_placeholder_price(price: int) -> bool:
 
 
 def main() -> None:
+    # Guard Tahap 3 (putusan Dan 2026-10-27): script legacy ini menimpa
+    # retail_catalog.json hasil build_merged_catalog.py. Tolak berjalan
+    # bila salah satu target sudah berformat merged (punya field tier),
+    # kecuali dipaksa eksplisit dengan --force-legacy.
+    if "--force-legacy" not in sys.argv:
+        for target in (REPO / "assets/data/retail_catalog.json",
+                       FN_DIR / "retail_catalog.json"):
+            try:
+                blob = target.read_text()[:200000]
+            except OSError:
+                continue
+            if '"tier"' in blob:
+                print(f"ERROR: {target} sudah berformat merged Tahap 3 "
+                      "(punya field tier). Menjalankan script ini akan "
+                      "menimpa hasil build_merged_catalog.py.\n"
+                      "Rebuild katalog wajib lewat "
+                      "workspace/bangworth_catalog/build_merged_catalog.py\n"
+                      "Jalankan dengan --force-legacy hanya bila kamu "
+                      "benar-benar bermaksud menimpa hasil merge.",
+                      file=sys.stderr)
+                sys.exit(2)
     retail_up = json.loads((UPLOAD_DIR / "retail_catalog.json").read_text())
     bench_up = json.loads((UPLOAD_DIR / "benchmark_scores.json").read_text())
     current = json.loads((REPO / "assets/data/retail_catalog.json").read_text())
