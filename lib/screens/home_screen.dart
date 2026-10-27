@@ -15,7 +15,6 @@ import 'package:worthbang/screens/result_screen.dart';
 import 'package:worthbang/screens/scan_price_screen.dart';
 import 'package:worthbang/screens/search_screen.dart';
 import 'package:worthbang/screens/stores_screen.dart';
-import 'package:worthbang/screens/tools_screen.dart';
 import 'package:worthbang/screens/wishlist_screen.dart';
 import 'package:worthbang/services/features/scan_price_service.dart';
 import 'package:worthbang/widgets/app_logo.dart';
@@ -41,12 +40,6 @@ class HomeScreen extends StatelessWidget {
       subtitle: AppStrings.homeStoresSubtitle,
       icon: Icons.store_outlined,
       page: (_) => const StoresScreen(),
-    ),
-    _HomeMenuItem(
-      title: AppStrings.toolsTitle,
-      subtitle: AppStrings.homeToolsSubtitle,
-      icon: Icons.calculate_outlined,
-      page: (_) => const ToolsScreen(),
     ),
     _HomeMenuItem(
       title: AppStrings.wishlistTitle,
